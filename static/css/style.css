@@ -739,8 +739,18 @@ textarea.log-textarea {
     100% { background-color: transparent; }
 }
 
+@keyframes rowFlashToGreen {
+    0%   { background-color: #fff9c4; }
+    30%  { background-color: #fff176; }
+    100% { background-color: #c8e6c9; }
+}
+
 tr.row-highlight {
     animation: rowFlash 3s ease-out;
+}
+
+tr.row-highlight.row-recent {
+    animation: rowFlashToGreen 3s ease-out;
 }
 
 tr.row-highlight td {

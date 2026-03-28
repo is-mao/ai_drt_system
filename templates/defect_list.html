@@ -242,7 +242,10 @@
                 var updMs = new Date(r.updated_at.replace(' ','T')).getTime();
                 if (!isNaN(updMs)) isRecent = (Date.now() - updMs) < 86400000; // 24 hours
             }
-            var trClass = isHighlight ? 'row-highlight' : (isRecent ? 'row-recent' : '');
+            var classes = [];
+            if (isHighlight) classes.push('row-highlight');
+            if (isRecent) classes.push('row-recent');
+            var trClass = classes.join(' ');
             html += '<tr' + (trClass ? ' class="' + trClass + '"' : '') + ' data-id="' + r.id + '">' +
                 '<td class="px-3 text-muted">' + r.id + '</td>' +
                 '<td><span class="badge" style="background-color:#283593;">' + escapeHtml(r.bu) + '</span></td>' +
