@@ -7,6 +7,7 @@ from flask_cors import CORS
 # Load .env file BEFORE importing Config (class vars read os.environ at import time)
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -38,9 +39,9 @@ def create_app():
     app.register_blueprint(ai_bp)
     app.register_blueprint(settings_bp)
 
-    @app.route('/')
+    @app.route("/")
     def index():
-        return redirect(url_for('dashboard.dashboard_page'))
+        return redirect(url_for("dashboard.dashboard_page"))
 
     # Create tables and migrate schema
     with app.app_context():
@@ -49,16 +50,17 @@ def create_app():
         _seed_defaults()
 
     # CLI commands
-    @app.cli.command('create-admin')
-    @click.option('--username', default='admin', help='Admin username')
-    @click.option('--password', default='admin123', help='Admin password')
+    @app.cli.command("create-admin")
+    @click.option("--username", default="admin", help="Admin username")
+    @click.option("--password", default="admin123", help="Admin password")
     def create_admin(username, password):
         from models.user import User
+
         with app.app_context():
             if User.query.filter_by(username=username).first():
                 click.echo(f'User "{username}" already exists.')
                 return
-            user = User(username=username, role='admin')
+            user = User(username=username, role="admin")
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
@@ -70,22 +72,23 @@ def create_app():
 def _migrate_columns(app):
     """Auto-add missing columns to existing tables."""
     from sqlalchemy import text, inspect
+
     try:
         inspector = inspect(db.engine)
-        existing = {col['name'] for col in inspector.get_columns('defect_reports')}
-        needed = {'sequence_log': 'TEXT', 'buffer_log': 'TEXT'}
-        is_sqlite = 'sqlite' in str(db.engine.url)
+        existing = {col["name"] for col in inspector.get_columns("defect_reports")}
+        needed = {"sequence_log": "TEXT", "buffer_log": "TEXT"}
+        is_sqlite = "sqlite" in str(db.engine.url)
         with db.engine.connect() as conn:
             for col_name, col_type in needed.items():
                 if col_name not in existing:
                     if is_sqlite:
-                        conn.execute(text(f'ALTER TABLE defect_reports ADD COLUMN {col_name} {col_type}'))
+                        conn.execute(text(f"ALTER TABLE defect_reports ADD COLUMN {col_name} {col_type}"))
                     else:
-                        conn.execute(text(f'ALTER TABLE defect_reports ADD COLUMN {col_name} {col_type} NULL'))
+                        conn.execute(text(f"ALTER TABLE defect_reports ADD COLUMN {col_name} {col_type} NULL"))
                     conn.commit()
-                    app.logger.info(f'Added missing column: {col_name}')
+                    app.logger.info(f"Added missing column: {col_name}")
     except Exception as e:
-        app.logger.warning(f'Column migration skipped: {e}')
+        app.logger.warning(f"Column migration skipped: {e}")
 
 
 def _seed_defaults():
@@ -94,18 +97,18 @@ def _seed_defaults():
 
     # Seed default admin if no users exist
     if User.query.count() == 0:
-        admin = User(username='admin', role='admin')
-        admin.set_password('admin123')
+        admin = User(username="admin", role="admin")
+        admin.set_password("admin123")
         db.session.add(admin)
         db.session.commit()
 
     # Seed default config
-    if not db.session.get(SystemConfig, 'gemini_api_key'):
-        db.session.add(SystemConfig(config_key='gemini_api_key', config_value=''))
+    if not db.session.get(SystemConfig, "gemini_api_key"):
+        db.session.add(SystemConfig(config_key="gemini_api_key", config_value=""))
         db.session.commit()
 
 
 app = create_app()
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5001)

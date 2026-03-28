@@ -4,12 +4,12 @@ from datetime import datetime
 
 # Mapping of config keys to environment variable names
 _ENV_FALLBACK = {
-    'gemini_api_key': 'GEMINI_API_KEY',
+    "gemini_api_key": "GEMINI_API_KEY",
 }
 
 
 class SystemConfig(db.Model):
-    __tablename__ = 'system_config'
+    __tablename__ = "system_config"
 
     config_key = db.Column(db.String(100), primary_key=True)
     config_value = db.Column(db.Text)

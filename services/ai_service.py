@@ -7,7 +7,7 @@ from services.failure_dict import lookup_failure
 from services.historical_search import search_similar_failures
 
 # Models to try in order (fallback if quota exhausted on one)
-GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite']
+GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
 
 # Retry config (like stock_analysis)
 MAX_RETRIES = 2
@@ -18,19 +18,19 @@ def _get_api_keys():
     """Get all Gemini API keys: database config first, then env var fallback.
     Supports comma-separated keys for quota rotation."""
     keys = []
-    db_key = SystemConfig.get_value('gemini_api_key')
+    db_key = SystemConfig.get_value("gemini_api_key")
     if db_key:
-        keys.extend([k.strip() for k in db_key.split(',') if k.strip()])
-    env_key = os.environ.get('GEMINI_API_KEY', '')
+        keys.extend([k.strip() for k in db_key.split(",") if k.strip()])
+    env_key = os.environ.get("GEMINI_API_KEY", "")
     if env_key:
-        for k in env_key.split(','):
+        for k in env_key.split(","):
             k = k.strip()
             if k and k not in keys:
                 keys.append(k)
     return keys
 
 
-def analyze_log_with_ai(log_content, failure='', defect_class='', station='', bu='', keywords='', exclude_id=None):
+def analyze_log_with_ai(log_content, failure="", defect_class="", station="", bu="", keywords="", exclude_id=None):
     """Analyze log content using Google Gemini AI.
 
     Returns: {'success': bool, 'source': str, 'root_cause': str, 'action': str, 'details': list|None}
@@ -44,17 +44,17 @@ def analyze_log_with_ai(log_content, failure='', defect_class='', station='', bu
             if result:
                 root_cause, action = _parse_ai_response(result)
                 return {
-                    'success': True,
-                    'source': 'ai',
-                    'root_cause': root_cause,
-                    'action': action,
-                    'suggestion': result,
-                    'details': None,
+                    "success": True,
+                    "source": "ai",
+                    "root_cause": root_cause,
+                    "action": action,
+                    "suggestion": result,
+                    "details": None,
                 }
         except Exception as e:
             ai_error = str(e)
             err_str = ai_error.lower()
-            if 'quota' in err_str or 'resource_exhausted' in err_str or '429' in err_str:
+            if "quota" in err_str or "resource_exhausted" in err_str or "429" in err_str:
                 print(f"API key ...{api_key[-6:]} quota exhausted, trying next key...")
                 continue
             print(f"Gemini API error: {e}")
@@ -66,13 +66,13 @@ def analyze_log_with_ai(log_content, failure='', defect_class='', station='', bu
         similar = search_similar_failures(failure, station=station, bu=bu, exclude_id=exclude_id)
         if similar:
             return {
-                'success': True,
-                'source': 'history',
-                'root_cause': similar[0].get('root_cause', ''),
-                'action': similar[0].get('action', ''),
-                'suggestion': similar[0].get('root_cause', ''),
-                'details': similar,
-                'ai_error': ai_error,
+                "success": True,
+                "source": "history",
+                "root_cause": similar[0].get("root_cause", ""),
+                "action": similar[0].get("action", ""),
+                "suggestion": similar[0].get("root_cause", ""),
+                "details": similar,
+                "ai_error": ai_error,
             }
 
     # Tier 3: Static failure dictionary
@@ -81,42 +81,45 @@ def analyze_log_with_ai(log_content, failure='', defect_class='', station='', bu
         if dict_result:
             defect_cls, defect_val, root_cause = dict_result
             return {
-                'success': True,
-                'source': 'dict',
-                'root_cause': root_cause,
-                'action': '',
-                'suggestion': root_cause,
-                'details': [{'defect_class': defect_cls, 'defect_value': defect_val, 'root_cause': root_cause}],
-                'ai_error': ai_error,
+                "success": True,
+                "source": "dict",
+                "root_cause": root_cause,
+                "action": "",
+                "suggestion": root_cause,
+                "details": [{"defect_class": defect_cls, "defect_value": defect_val, "root_cause": root_cause}],
+                "ai_error": ai_error,
             }
 
     # Tier 4: No suggestion available
     return {
-        'success': False,
-        'source': 'none',
-        'root_cause': None,
-        'action': None,
-        'suggestion': None,
-        'details': None,
-        'ai_error': ai_error or ('No API key configured. Set GEMINI_API_KEY in .env or Settings page.' if not api_keys else None),
+        "success": False,
+        "source": "none",
+        "root_cause": None,
+        "action": None,
+        "suggestion": None,
+        "details": None,
+        "ai_error": ai_error
+        or ("No API key configured. Set GEMINI_API_KEY in .env or Settings page." if not api_keys else None),
     }
 
 
 def _parse_ai_response(text):
     """Parse AI response to extract Root Cause and Action separately."""
-    root_cause = ''
-    action = ''
+    root_cause = ""
+    action = ""
 
     # Try to parse structured response
-    rc_match = re.search(r'Root\s*Cause[:\s]*(.+?)(?=(?:Recommended\s+)?Action[:\s]|$)', text, re.IGNORECASE | re.DOTALL)
-    action_match = re.search(r'(?:Recommended\s+)?Action[:\s]*(.+?)$', text, re.IGNORECASE | re.DOTALL)
+    rc_match = re.search(
+        r"Root\s*Cause[:\s]*(.+?)(?=(?:Recommended\s+)?Action[:\s]|$)", text, re.IGNORECASE | re.DOTALL
+    )
+    action_match = re.search(r"(?:Recommended\s+)?Action[:\s]*(.+?)$", text, re.IGNORECASE | re.DOTALL)
 
     if rc_match:
         root_cause = rc_match.group(1).strip()
     if action_match:
         raw_action = action_match.group(1).strip()
         # Ensure numbered lines are on separate lines
-        raw_action = re.sub(r'(?<!\n)(\d+\.\s)', r'\n\1', raw_action)
+        raw_action = re.sub(r"(?<!\n)(\d+\.\s)", r"\n\1", raw_action)
         action = raw_action.strip()
 
     # Fallback: if parsing failed, put everything in root_cause
@@ -134,9 +137,9 @@ def _strip_markdown(text):
     """Remove markdown formatting from text."""
     if not text:
         return text
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **bold**
-    text = re.sub(r'\*(.+?)\*', r'\1', text)       # *italic*
-    text = re.sub(r'`(.+?)`', r'\1', text)         # `code`
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)  # **bold**
+    text = re.sub(r"\*(.+?)\*", r"\1", text)  # *italic*
+    text = re.sub(r"`(.+?)`", r"\1", text)  # `code`
     return text.strip()
 
 
@@ -147,7 +150,7 @@ def beautify_root_cause_action(root_cause, action):
     """
     api_keys = _get_api_keys()
     if not api_keys:
-        return {'success': False, 'error': 'No API key configured. Set GEMINI_API_KEY in .env or Settings page.'}
+        return {"success": False, "error": "No API key configured. Set GEMINI_API_KEY in .env or Settings page."}
 
     prompt = f"""You are a technical writing expert for manufacturing defect reports.
 Your task is to improve the clarity and readability of the following Root Cause and Action text.
@@ -179,44 +182,44 @@ Action:
         try:
             try:
                 from google import genai
+
                 client = genai.Client(api_key=api_key)
                 for model_name in GEMINI_MODELS:
                     try:
-                        response = client.models.generate_content(
-                            model=model_name, contents=prompt)
+                        response = client.models.generate_content(model=model_name, contents=prompt)
                         result_text = response.text
                         new_rc, new_action = _parse_ai_response(result_text)
                         return {
-                            'success': True,
-                            'root_cause': new_rc or root_cause,
-                            'action': new_action or action,
+                            "success": True,
+                            "root_cause": new_rc or root_cause,
+                            "action": new_action or action,
                         }
                     except Exception as e:
                         err_str = str(e).lower()
-                        if 'quota' in err_str or '429' in err_str:
+                        if "quota" in err_str or "429" in err_str:
                             continue
                         raise
             except ImportError:
-                result_text = _call_gemini_legacy(api_key, prompt, '', '', '', '', '')
+                result_text = _call_gemini_legacy(api_key, prompt, "", "", "", "", "")
                 if result_text:
                     new_rc, new_action = _parse_ai_response(result_text)
                     return {
-                        'success': True,
-                        'root_cause': new_rc or root_cause,
-                        'action': new_action or action,
+                        "success": True,
+                        "root_cause": new_rc or root_cause,
+                        "action": new_action or action,
                     }
         except Exception as e:
             err_str = str(e).lower()
-            if 'quota' in err_str or '429' in err_str:
+            if "quota" in err_str or "429" in err_str:
                 continue
-            return {'success': False, 'error': str(e)}
+            return {"success": False, "error": str(e)}
 
-    return {'success': False, 'error': 'All API keys exhausted (quota). Please try again later.'}
+    return {"success": False, "error": "All API keys exhausted (quota). Please try again later."}
 
 
-def _build_prompt(bu, station, failure, defect_class, log_content, keywords=''):
+def _build_prompt(bu, station, failure, defect_class, log_content, keywords=""):
     """Build the shared AI analysis prompt."""
-    keywords_section = ''
+    keywords_section = ""
     if keywords:
         keywords_section = f"\nUser-provided Keywords/Hints: {keywords}\nIMPORTANT: Pay special attention to the keywords above. They indicate the engineer's suspected direction for root cause analysis. Use them to guide your diagnosis.\n"
 
@@ -248,7 +251,7 @@ Action:
 3. Retest and confirm PASS"""
 
 
-def _call_gemini(api_key, log_content, failure, defect_class, station, bu, keywords=''):
+def _call_gemini(api_key, log_content, failure, defect_class, station, bu, keywords=""):
     """Call Google Gemini API with retry-on-rate-limit (like stock_analysis)."""
     try:
         from google import genai
@@ -270,7 +273,7 @@ def _call_gemini(api_key, log_content, failure, defect_class, station, bu, keywo
             except Exception as e:
                 last_error = e
                 err_str = str(e).lower()
-                if 'quota' in err_str or 'resource_exhausted' in err_str or '429' in err_str:
+                if "quota" in err_str or "resource_exhausted" in err_str or "429" in err_str:
                     print(f"Quota exhausted for {model_name}, trying next model...")
                     continue
                 raise
@@ -286,13 +289,13 @@ def _call_gemini(api_key, log_content, failure, defect_class, station, bu, keywo
 
 def _parse_retry_delay(error_str):
     """Extract retry delay from Gemini error message (e.g. 'Please retry in 57.2s')."""
-    match = re.search(r'retry in (\d+(?:\.\d+)?)s', error_str, re.IGNORECASE)
+    match = re.search(r"retry in (\d+(?:\.\d+)?)s", error_str, re.IGNORECASE)
     if match:
         return min(int(float(match.group(1))) + 2, 90)  # cap at 90s, add 2s buffer
     return None
 
 
-def _call_gemini_legacy(api_key, log_content, failure, defect_class, station, bu, keywords=''):
+def _call_gemini_legacy(api_key, log_content, failure, defect_class, station, bu, keywords=""):
     """Fallback: Call Gemini using deprecated google.generativeai SDK."""
     import google.generativeai as genai
 
@@ -309,7 +312,7 @@ def _call_gemini_legacy(api_key, log_content, failure, defect_class, station, bu
         except Exception as e:
             last_error = e
             err_str = str(e).lower()
-            if 'quota' in err_str or 'resource_exhausted' in err_str or '429' in err_str:
+            if "quota" in err_str or "resource_exhausted" in err_str or "429" in err_str:
                 print(f"Quota exhausted for {model_name}, trying next model...")
                 continue
             raise
@@ -321,6 +324,7 @@ def test_ai_connection(api_key):
     """Test if the Gemini API key is valid."""
     try:
         from google import genai
+
         client = genai.Client(api_key=api_key)
         for model_name in GEMINI_MODELS:
             try:
@@ -330,15 +334,16 @@ def test_ai_connection(api_key):
                 )
                 return True, f"[{model_name}] {response.text}"
             except Exception as e:
-                if 'quota' in str(e).lower() or '429' in str(e):
+                if "quota" in str(e).lower() or "429" in str(e):
                     continue
                 raise
         return False, "All models quota exhausted. Check billing at https://ai.google.dev"
     except ImportError:
         try:
             import google.generativeai as genai
+
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            model = genai.GenerativeModel("gemini-2.0-flash")
             response = model.generate_content("Say 'connected' if you can read this.")
             return True, response.text
         except Exception as e:
