@@ -1,0 +1,370 @@
+from models import db
+from models.defect_report import DefectReport
+from flask import Blueprint, request, jsonify, render_template
+from routes.auth import login_required
+from sqlalchemy import func
+from config import Config
+from datetime import datetime, timedelta
+
+dashboard_bp = Blueprint('dashboard', __name__, url_prefix='')
+
+
+@dashboard_bp.route('/dashboard', methods=['GET'])
+@login_required
+def dashboard_page():
+    return render_template('dashboard.html', bu_options=Config.BU_OPTIONS)
+
+
+@dashboard_bp.route('/api/dashboard/summary', methods=['GET'])
+@login_required
+def dashboard_summary():
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    query = DefectReport.query.filter(
+        db.or_(DefectReport.status == 'complete', DefectReport.status.is_(None))
+    )
+
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(DefectReport.record_time >= dt_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d')
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(DefectReport.record_time <= dt_to)
+        except ValueError:
+            pass
+
+    total_count = query.count()
+    bu_counts = {b: query.filter(DefectReport.bu == b).count() for b in Config.BU_OPTIONS}
+
+    # This week: based on Jan 1 = W01 calculation
+    today = datetime.now().date()
+    jan1 = today.replace(month=1, day=1)
+    current_week = (today.timetuple().tm_yday - 1) // 7 + 1
+    week_start = jan1 + timedelta(days=(current_week - 1) * 7)
+    week_end = jan1 + timedelta(days=current_week * 7 - 1)
+    dec31 = today.replace(month=12, day=31)
+    if week_end > dec31:
+        week_end = dec31
+    this_week_count = DefectReport.query.filter(
+        DefectReport.record_time >= datetime.combine(week_start, datetime.min.time()),
+        DefectReport.record_time <= datetime.combine(week_end, datetime.min.time()).replace(
+            hour=23, minute=59, second=59
+        ),
+        db.or_(DefectReport.status == 'complete', DefectReport.status.is_(None))
+    ).count()
+
+    result = {
+        'total_count': total_count,
+        'this_week_count': this_week_count,
+        'bu_counts': bu_counts,
+    }
+    return jsonify(result)
+
+
+@dashboard_bp.route('/api/dashboard/weekly-trend', methods=['GET'])
+@login_required
+def weekly_trend():
+    bu = request.args.get('bu')
+    year = request.args.get('year', datetime.now().year, type=int)
+
+    today = datetime.now().date()
+
+    # Week calculation: Jan 1 = W01, each 7 days = 1 week
+    jan1 = today.replace(year=year, month=1, day=1)
+    # Calculate total weeks in this year
+    dec31 = today.replace(year=year, month=12, day=31)
+    total_weeks = (dec31.timetuple().tm_yday - 1) // 7 + 1
+
+    # Only show up to current week if viewing current year
+    if year == today.year:
+        current_week = (today.timetuple().tm_yday - 1) // 7 + 1
+        show_weeks = current_week
+    else:
+        show_weeks = total_weeks
+
+    labels = []
+    bu_datasets = {b: [] for b in Config.BU_OPTIONS}
+
+    for w in range(1, show_weeks + 1):
+        week_start = jan1 + timedelta(days=(w - 1) * 7)
+        # Last week may be shorter
+        week_end_date = jan1 + timedelta(days=w * 7 - 1)
+        if week_end_date > dec31:
+            week_end_date = dec31
+
+        year_short = year % 100
+        labels.append(f'{year_short}WK{w:02d}')
+
+        dt_start = datetime.combine(week_start, datetime.min.time())
+        dt_end = datetime.combine(week_end_date, datetime.min.time()).replace(
+            hour=23, minute=59, second=59
+        )
+
+        base_query = DefectReport.query.filter(
+            DefectReport.record_time >= dt_start,
+            DefectReport.record_time <= dt_end,
+            db.or_(DefectReport.status == 'complete', DefectReport.status.is_(None))
+        )
+
+        if bu and bu.upper() in Config.BU_OPTIONS:
+            count = base_query.filter(DefectReport.bu == bu.upper()).count()
+            for b in Config.BU_OPTIONS:
+                bu_datasets[b].append(count if bu.upper() == b else 0)
+        else:
+            for b in Config.BU_OPTIONS:
+                bu_datasets[b].append(
+                    base_query.filter(DefectReport.bu == b).count()
+                )
+
+    datasets = []
+    for b in Config.BU_OPTIONS:
+        if not bu or bu.upper() == b:
+            datasets.append({'label': b, 'data': bu_datasets[b]})
+
+    return jsonify({
+        'labels': labels,
+        'datasets': datasets
+    })
+
+
+@dashboard_bp.route('/api/dashboard/defect-class-distribution', methods=['GET'])
+@login_required
+def defect_class_distribution():
+    bu = request.args.get('bu')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    query = db.session.query(
+        DefectReport.defect_class,
+        func.count(DefectReport.id).label('count')
+    )
+
+    if bu and bu.upper() in Config.BU_OPTIONS:
+        query = query.filter(DefectReport.bu == bu.upper())
+
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(DefectReport.record_time >= dt_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d')
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(DefectReport.record_time <= dt_to)
+        except ValueError:
+            pass
+
+    query = query.filter(DefectReport.defect_class.isnot(None))
+    results = query.group_by(DefectReport.defect_class).order_by(
+        func.count(DefectReport.id).desc()
+    ).all()
+
+    labels = [r[0] for r in results]
+    data = [r[1] for r in results]
+
+    return jsonify({
+        'labels': labels,
+        'data': data
+    })
+
+
+@dashboard_bp.route('/api/dashboard/top-stations', methods=['GET'])
+@login_required
+def top_stations():
+    bu = request.args.get('bu')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    query = db.session.query(
+        DefectReport.station,
+        func.count(DefectReport.id).label('count')
+    )
+
+    if bu and bu.upper() in Config.BU_OPTIONS:
+        query = query.filter(DefectReport.bu == bu.upper())
+
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(DefectReport.record_time >= dt_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d')
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(DefectReport.record_time <= dt_to)
+        except ValueError:
+            pass
+
+    query = query.filter(
+        DefectReport.station.isnot(None),
+        DefectReport.station != '',
+        db.or_(DefectReport.status == 'complete', DefectReport.status.is_(None))
+    )
+    results = query.group_by(DefectReport.station).order_by(
+        func.count(DefectReport.id).desc()
+    ).limit(10).all()
+
+    labels = [r[0] for r in results]
+    data = [r[1] for r in results]
+
+    return jsonify({
+        'labels': labels,
+        'data': data
+    })
+
+
+@dashboard_bp.route('/api/dashboard/top-servers', methods=['GET'])
+@login_required
+def top_servers():
+    bu = request.args.get('bu')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    query = db.session.query(
+        DefectReport.server,
+        func.count(DefectReport.id).label('count')
+    )
+
+    if bu and bu.upper() in Config.BU_OPTIONS:
+        query = query.filter(DefectReport.bu == bu.upper())
+
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(DefectReport.record_time >= dt_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d')
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(DefectReport.record_time <= dt_to)
+        except ValueError:
+            pass
+
+    query = query.filter(
+        DefectReport.server.isnot(None),
+        DefectReport.server != '',
+        db.or_(DefectReport.status == 'complete', DefectReport.status.is_(None))
+    )
+    results = query.group_by(DefectReport.server).order_by(
+        func.count(DefectReport.id).desc()
+    ).limit(10).all()
+
+    labels = [r[0] for r in results]
+    data = [r[1] for r in results]
+
+    return jsonify({
+        'labels': labels,
+        'data': data
+    })
+
+
+@dashboard_bp.route('/api/dashboard/top-pcapn', methods=['GET'])
+@login_required
+def top_pcapn():
+    bu = request.args.get('bu')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    query = db.session.query(
+        DefectReport.pcap_n,
+        func.count(DefectReport.id).label('count')
+    )
+
+    if bu and bu.upper() in Config.BU_OPTIONS:
+        query = query.filter(DefectReport.bu == bu.upper())
+
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(DefectReport.record_time >= dt_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d')
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(DefectReport.record_time <= dt_to)
+        except ValueError:
+            pass
+
+    query = query.filter(
+        DefectReport.pcap_n.isnot(None),
+        DefectReport.pcap_n != '',
+        db.or_(DefectReport.status == 'complete', DefectReport.status.is_(None))
+    )
+    results = query.group_by(DefectReport.pcap_n).order_by(
+        func.count(DefectReport.id).desc()
+    ).limit(10).all()
+
+    labels = [r[0] for r in results]
+    data = [r[1] for r in results]
+
+    return jsonify({
+        'labels': labels,
+        'data': data
+    })
+
+
+@dashboard_bp.route('/api/dashboard/top-failures', methods=['GET'])
+@login_required
+def top_failures():
+    bu = request.args.get('bu')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+
+    query = db.session.query(
+        DefectReport.failure,
+        func.count(DefectReport.id).label('count')
+    )
+
+    if bu and bu.upper() in Config.BU_OPTIONS:
+        query = query.filter(DefectReport.bu == bu.upper())
+
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(DefectReport.record_time >= dt_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, '%Y-%m-%d')
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(DefectReport.record_time <= dt_to)
+        except ValueError:
+            pass
+
+    query = query.filter(
+        DefectReport.failure.isnot(None),
+        DefectReport.failure != '',
+        db.or_(DefectReport.status == 'complete', DefectReport.status.is_(None))
+    )
+    results = query.group_by(DefectReport.failure).order_by(
+        func.count(DefectReport.id).desc()
+    ).limit(10).all()
+
+    labels = [r[0] for r in results]
+    data = [r[1] for r in results]
+
+    return jsonify({
+        'labels': labels,
+        'data': data
+    })

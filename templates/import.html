@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Import Data - DRT System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h4><i class="bi bi-cloud-arrow-up me-2" style="color: var(--primary);"></i>Import Data</h4>
+        <div class="page-subtitle">Import from DRT Excel or Cesium raw data</div>
+    </div>
+</div>
+
+<!-- Import Type Tabs -->
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-drt" data-bs-toggle="tab" data-bs-target="#pane-drt"
+                type="button" role="tab"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Import DRT Excel</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-cesium" data-bs-toggle="tab" data-bs-target="#pane-cesium"
+                type="button" role="tab"><i class="bi bi-database me-1"></i>Import Cesium Raw Data</button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- ========== DRT Import Tab ========== -->
+    <div class="tab-pane fade show active" id="pane-drt" role="tabpanel">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i><strong>Import DRT Excel Data</strong></span>
+                <a href="/api/export/template" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-download me-1"></i>
+                    Download Template
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="importBU" class="form-label fw-semibold">Business Unit</label>
+                    <select id="importBU" class="form-select" style="max-width: 250px;" required>
+                        <option value="" disabled selected>Select BU...</option>
+                        {% for bu in bu_options %}
+                        <option value="{{ bu }}">{{ bu }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="dropZone" class="upload-zone">
+                    <i class="bi bi-file-earmark-spreadsheet" style="font-size: 3rem; color: var(--gray-400);"></i>
+                    <p class="text-muted mb-1 mt-2">Drag and drop your <strong>.xlsx</strong> file here</p>
+                    <p class="text-muted small mb-2">or</p>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="browseBtn"><i class="bi bi-folder2-open me-1"></i>Browse Files</button>
+                    <input type="file" id="fileInput" accept=".xlsx" class="d-none">
+                    <p class="text-muted small mt-2 mb-0" id="fileNameDisplay"></p>
+                </div>
+                <div class="mt-3 text-end d-none" id="uploadActions">
+                    <button type="button" class="btn btn-secondary me-2" id="clearBtn">Clear</button>
+                    <button type="button" class="btn btn-primary" id="uploadBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="uploadSpinner" role="status"></span>
+                        Confirm Import
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Preview -->
+        <div class="card mb-4 d-none" id="previewCard">
+            <div class="card-header"><i class="bi bi-eye me-2"></i>Preview (First 5 Rows)</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0" id="previewTable">
+                        <thead class="table-light"><tr id="previewHeader"></tr></thead>
+                        <tbody id="previewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- DRT Results -->
+        <div class="card mb-4 d-none" id="resultsCard">
+            <div class="card-header"><i class="bi bi-check-circle me-2"></i>Import Results</div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="h4 mb-0 text-success" id="resultImported">0</div>
+                        <div class="small text-muted">Imported</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 mb-0 text-warning" id="resultSkipped">0</div>
+                        <div class="small text-muted">Skipped</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 mb-0 text-danger" id="resultErrors">0</div>
+                        <div class="small text-muted">Errors</div>
+                    </div>
+                </div>
+                <div id="errorList" class="d-none">
+                    <hr>
+                    <h6 class="text-danger">Error Details:</h6>
+                    <ul id="errorListItems" class="small text-danger mb-0"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== Cesium Import Tab ========== -->
+    <div class="tab-pane fade" id="pane-cesium" role="tabpanel">
+        <div class="card mb-4">
+            <div class="card-header">
+                <span><i class="bi bi-database me-2 text-primary"></i><strong>Import Cesium Raw Data</strong></span>
+                <span class="text-muted small ms-2">Records imported as <span class="badge bg-warning text-dark">Pending</span> — complete Defect Class, Defect Value, and logs before they appear in Defects.</span>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="cesiumBU" class="form-label fw-semibold">Business Unit</label>
+                    <select id="cesiumBU" class="form-select" style="max-width: 250px;" required>
+                        <option value="" disabled selected>Select BU...</option>
+                        {% for bu in bu_options %}
+                        <option value="{{ bu }}">{{ bu }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="alert alert-info small py-2 mb-3">
+                    <strong>Auto-mapped fields:</strong> Record Time → record_time, Serial Number → SN, Failing Test Name → Failure, Machine → Server, UUT Type → PCAP/N, Test Area → Station. Week# auto-calculated.
+                </div>
+                <div id="cesiumDropZone" class="upload-zone" style="background: var(--purple-light);">
+                    <i class="bi bi-database" style="font-size: 3rem; color: var(--purple);"></i>
+                    <p class="text-muted mb-1 mt-2">Drop Cesium <strong>.xlsx</strong> export file here</p>
+                    <p class="text-muted small mb-2">or</p>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="cesiumBrowseBtn"><i class="bi bi-folder2-open me-1"></i>Browse Files</button>
+                    <input type="file" id="cesiumFileInput" accept=".xlsx" class="d-none">
+                    <p class="text-muted small mt-2 mb-0" id="cesiumFileNameDisplay"></p>
+                </div>
+                <div class="mt-3 text-end d-none" id="cesiumUploadActions">
+                    <button type="button" class="btn btn-secondary me-2" id="cesiumClearBtn">Clear</button>
+                    <button type="button" class="btn btn-success" id="cesiumUploadBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="cesiumUploadSpinner" role="status"></span>
+                        Import as Pending
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Cesium Preview -->
+        <div class="card mb-4 d-none" id="cesiumPreviewCard">
+            <div class="card-header"><i class="bi bi-eye me-2"></i>Preview (First 5 Rows)</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0">
+                        <thead class="table-light"><tr id="cesiumPreviewHeader"></tr></thead>
+                        <tbody id="cesiumPreviewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- Cesium Results -->
+        <div class="card mb-4 d-none" id="cesiumResultsCard">
+            <div class="card-header"><i class="bi bi-check-circle me-2"></i>Import Results</div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="h4 mb-0 text-success" id="cesiumResultImported">0</div>
+                        <div class="small text-muted">Imported as Pending</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 mb-0 text-warning" id="cesiumResultSkipped">0</div>
+                        <div class="small text-muted">Skipped (Duplicates)</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 mb-0 text-danger" id="cesiumResultErrors">0</div>
+                        <div class="small text-muted">Errors</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+(function () {
+    // ===================== SHARED =====================
+    function showToast(message, type) {
+        const toastEl = document.getElementById('appToast');
+        const toastMsg = document.getElementById('toastMessage');
+        if (toastEl && toastMsg) {
+            toastMsg.textContent = message;
+            toastEl.className = 'toast align-items-center border-0 text-bg-' + (type || 'primary');
+            new bootstrap.Toast(toastEl).show();
+        }
+    }
+
+    function setupDropZone(dropZoneId, fileInputId, browseId, fileNameId, actionsId, clearId, previewFn) {
+        const dz = document.getElementById(dropZoneId);
+        const fi = document.getElementById(fileInputId);
+        const browse = document.getElementById(browseId);
+        const fn = document.getElementById(fileNameId);
+        const actions = document.getElementById(actionsId);
+        const clear = document.getElementById(clearId);
+        let selectedFile = null;
+
+        browse.addEventListener('click', () => fi.click());
+        fi.addEventListener('change', function () { if (this.files.length > 0) pick(this.files[0]); });
+
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = '#1565c0'; });
+        dz.addEventListener('dragleave', e => { e.preventDefault(); dz.style.borderColor = '#bdbdbd'; });
+        dz.addEventListener('drop', e => {
+            e.preventDefault(); dz.style.borderColor = '#bdbdbd';
+            const f = e.dataTransfer.files[0];
+            if (f && f.name.endsWith('.xlsx')) pick(f);
+            else showToast('Only .xlsx files accepted', 'danger');
+        });
+
+        function pick(file) {
+            selectedFile = file;
+            fn.textContent = file.name + ' (' + formatSize(file.size) + ')';
+            actions.classList.remove('d-none');
+            if (previewFn) previewFn(file);
+        }
+
+        clear.addEventListener('click', () => {
+            selectedFile = null; fi.value = ''; fn.textContent = '';
+            actions.classList.add('d-none');
+        });
+
+        function formatSize(b) {
+            if (b < 1024) return b + ' B';
+            if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+            return (b / 1048576).toFixed(1) + ' MB';
+        }
+
+        return { getFile: () => selectedFile, clear: () => clear.click() };
+    }
+
+    function previewExcel(file, headerId, bodyId, cardId) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+                if (!data.length) return;
+                const hdr = document.getElementById(headerId);
+                const body = document.getElementById(bodyId);
+                hdr.innerHTML = '';
+                (data[0] || []).forEach(h => { const th = document.createElement('th'); th.textContent = h || ''; th.className = 'small text-nowrap'; hdr.appendChild(th); });
+                body.innerHTML = '';
+                for (let i = 1; i < Math.min(data.length, 6); i++) {
+                    const tr = document.createElement('tr');
+                    for (let j = 0; j < (data[0] || []).length; j++) {
+                        const td = document.createElement('td');
+                        td.textContent = (data[i] || [])[j] !== undefined ? (data[i] || [])[j] : '';
+                        td.className = 'small text-nowrap';
+                        tr.appendChild(td);
+                    }
+                    body.appendChild(tr);
+                }
+                document.getElementById(cardId).classList.remove('d-none');
+            } catch (err) { console.error(err); }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // ===================== DRT IMPORT =====================
+    const drtZone = setupDropZone('dropZone', 'fileInput', 'browseBtn', 'fileNameDisplay', 'uploadActions', 'clearBtn',
+        f => previewExcel(f, 'previewHeader', 'previewBody', 'previewCard'));
+
+    document.getElementById('uploadBtn').addEventListener('click', async function () {
+        const file = drtZone.getFile();
+        if (!file) { showToast('Select a file first', 'warning'); return; }
+        const bu = document.getElementById('importBU').value;
+        if (!bu) { showToast('Select a Business Unit', 'warning'); return; }
+
+        const fd = new FormData(); fd.append('file', file); fd.append('bu', bu);
+        this.disabled = true;
+        document.getElementById('uploadSpinner').classList.remove('d-none');
+
+        try {
+            const resp = await fetch('/api/import/excel', { method: 'POST', body: fd });
+            const data = await resp.json();
+            document.getElementById('resultImported').textContent = data.imported || 0;
+            document.getElementById('resultSkipped').textContent = data.skipped || 0;
+            document.getElementById('resultErrors').textContent = (data.errors || []).length;
+            const el = document.getElementById('errorList');
+            const items = document.getElementById('errorListItems');
+            if (data.errors && data.errors.length) {
+                items.innerHTML = '';
+                data.errors.forEach(err => { const li = document.createElement('li'); li.textContent = err; items.appendChild(li); });
+                el.classList.remove('d-none');
+            } else { el.classList.add('d-none'); }
+            document.getElementById('resultsCard').classList.remove('d-none');
+            if (data.success) showToast(data.imported + ' records imported', 'success');
+        } catch (err) { showToast('Upload failed', 'danger'); }
+        finally { this.disabled = false; document.getElementById('uploadSpinner').classList.add('d-none'); }
+    });
+
+    // ===================== CESIUM IMPORT =====================
+    const cesiumZone = setupDropZone('cesiumDropZone', 'cesiumFileInput', 'cesiumBrowseBtn', 'cesiumFileNameDisplay',
+        'cesiumUploadActions', 'cesiumClearBtn',
+        f => previewExcel(f, 'cesiumPreviewHeader', 'cesiumPreviewBody', 'cesiumPreviewCard'));
+
+    document.getElementById('cesiumUploadBtn').addEventListener('click', async function () {
+        const file = cesiumZone.getFile();
+        if (!file) { showToast('Select a file first', 'warning'); return; }
+        const bu = document.getElementById('cesiumBU').value;
+        if (!bu) { showToast('Select a Business Unit', 'warning'); return; }
+
+        const fd = new FormData(); fd.append('file', file); fd.append('bu', bu);
+        this.disabled = true;
+        document.getElementById('cesiumUploadSpinner').classList.remove('d-none');
+
+        try {
+            const resp = await fetch('/api/import/cesium', { method: 'POST', body: fd });
+            const data = await resp.json();
+            document.getElementById('cesiumResultImported').textContent = data.imported || 0;
+            document.getElementById('cesiumResultSkipped').textContent = data.skipped || 0;
+            document.getElementById('cesiumResultErrors').textContent = (data.errors || []).length;
+            document.getElementById('cesiumResultsCard').classList.remove('d-none');
+            if (data.success) {
+                showToast(data.imported + ' records imported as pending', 'success');
+            } else {
+                showToast(data.error || 'Import failed', 'danger');
+            }
+        } catch (err) { showToast('Upload failed: ' + err.message, 'danger'); }
+        finally { this.disabled = false; document.getElementById('cesiumUploadSpinner').classList.add('d-none'); }
+    });
+
+})();
+</script>
+{% endblock %}

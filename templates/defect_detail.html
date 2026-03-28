@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Defect Report #{{ record.id }} - DRT System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h4><i class="bi bi-file-earmark-text me-2" style="color: var(--primary);"></i>Defect Report #{{ record.id }}</h4>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/defects/{{ record.id }}/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+        <button class="btn btn-danger btn-sm" id="deleteBtn"><i class="bi bi-trash me-1"></i>Delete</button>
+        <a href="/defects" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back to List</a>
+    </div>
+</div>
+
+{% if record.ai_root_cause %}
+<div class="alert alert-info mb-3" style="border-radius: var(--radius-md);">
+    <strong><i class="bi bi-robot me-1"></i>AI Root Cause Analysis:</strong>
+    <div class="mt-1" style="white-space: pre-wrap;">{{ record.ai_root_cause }}</div>
+</div>
+{% endif %}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless info-table mb-0">
+                    <tbody>
+                        <tr>
+                            <td>ID</td>
+                            <td>{{ record.id }}</td>
+                        </tr>
+                        <tr>
+                            <td>BU</td>
+                            <td>{{ record.bu or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Week#</td>
+                            <td>{{ record.week_number or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>PCAP/N</td>
+                            <td>{{ record.pcap_n or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Station</td>
+                            <td>{{ record.station or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Server</td>
+                            <td>{{ record.server or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>SN</td>
+                            <td><code>{{ record.sn or '' }}</code></td>
+                        </tr>
+                        <tr>
+                            <td>Record Time</td>
+                            <td>{{ record.record_time or '' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless info-table mb-0">
+                    <tbody>
+                        <tr>
+                            <td>Defect Class</td>
+                            <td>{{ record.defect_class or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Defect Value</td>
+                            <td>{{ record.defect_value or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Failure</td>
+                            <td>{{ record.failure or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Root Cause</td>
+                            <td style="white-space: pre-wrap;">{{ record.root_cause or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Action</td>
+                            <td style="white-space: pre-wrap;">{{ record.action or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>PN</td>
+                            <td>{{ record.pn or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Component SN</td>
+                            <td>{{ record.component_sn or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Created By</td>
+                            <td>{{ record.created_by or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Created At</td>
+                            <td>{{ record.created_at or '' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Updated At</td>
+                            <td>{{ record.updated_at or '' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LOG Section -->
+{% if record.log_content %}
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-terminal me-2"></i><strong>LOG Content</strong></span>
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#logModal">
+            <i class="bi bi-arrows-fullscreen me-1"></i>View Full Log
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <pre class="log-display mb-0 p-3" style="max-height: 400px; border-radius: 0 0 var(--radius-md) var(--radius-md);"><code>{{ record.log_content }}</code></pre>
+    </div>
+</div>
+{% endif %}
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete record <strong>#{{ record.id }}</strong>? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Full Log Modal -->
+{% if record.log_content %}
+<div class="modal fade" id="logModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-terminal me-2"></i>LOG - Defect Report #{{ record.id }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre class="log-display mb-0"><code>{{ record.log_content }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const recordId = {{ record.id }};
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+
+    document.getElementById('deleteBtn').addEventListener('click', function () {
+        deleteModal.show();
+    });
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async function () {
+        try {
+            const resp = await fetch('/api/defects/' + recordId, { method: 'DELETE' });
+            const json = await resp.json();
+            if (json.success) {
+                window.location.href = '/defects';
+            } else {
+                appAlert('Delete failed: ' + (json.error || 'Unknown error'), 'Error', 'danger');
+            }
+        } catch (err) {
+            appAlert('Error deleting record.', 'Error', 'danger');
+            console.error(err);
+        }
+    });
+})();
+</script>
+{% endblock %}

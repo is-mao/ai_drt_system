@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - DRT System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h4><i class="bi bi-grid-1x2-fill me-2" style="color: var(--primary);"></i>Dashboard</h4>
+        <div class="page-subtitle">Overview of defect tracking metrics</div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="card filter-card mb-4">
+    <div class="card-body py-2">
+        <form id="filterForm" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label mb-0">Business Unit</label>
+                <select id="filterBU" class="form-select form-select-sm" style="min-width: 130px;">
+                    <option value="">All BU</option>
+                    {% for bu in bu_options %}
+                    <option value="{{ bu }}">{{ bu }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0">Date From</label>
+                <input type="date" id="filterDateFrom" class="form-control form-control-sm">
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0">Date To</label>
+                <input type="date" id="filterDateTo" class="form-control form-control-sm">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm px-4">
+                    <i class="bi bi-funnel-fill me-1"></i>
+                    Apply Filters
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Row 1: KPI Summary Cards -->
+<div class="row mb-4" id="kpiCards">
+    <div class="col mb-3">
+        <div class="card kpi-card-item h-100" style="border-left-color: #1565c0;">
+            <div class="card-body py-2">
+                <div class="kpi-label mb-1">Total Defects</div>
+                <div class="kpi-value" id="kpiTotal">--</div>
+            </div>
+        </div>
+    </div>
+    {% for bu in bu_options %}
+    <div class="col mb-3">
+        <div class="card kpi-card-item h-100" style="border-left-color: {{ loop.cycle('#2e7d32','#e65100','#6a1b9a','#00695c','#c62828') }};">
+            <div class="card-body py-2">
+                <div class="kpi-label mb-1">{{ bu }}</div>
+                <div class="kpi-value" id="kpi{{ bu }}">--</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    <div class="col mb-3">
+        <div class="card kpi-card-item h-100" style="border-left-color: #c62828;">
+            <div class="card-body py-2">
+                <div class="kpi-label mb-1">This Week</div>
+                <div class="kpi-value" id="kpiWeek">--</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 2: Charts Side by Side -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-pie-chart-fill me-2 text-primary"></i>Defect Class Distribution</div>
+            <div class="card-body">
+                <canvas id="defectClassChart" height="280"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-graph-up me-2 text-primary"></i>Weekly Trend</div>
+            <div class="card-body">
+                <canvas id="weeklyTrendChart" height="350"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 3: Top 10 Charts Side by Side -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-bar-chart-fill me-2 text-primary"></i>Top 10 Stations by Defect Count</div>
+            <div class="card-body">
+                <canvas id="topStationsChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-hdd-rack-fill me-2 text-primary"></i>Top 10 Servers by Defect Count</div>
+            <div class="card-body">
+                <canvas id="topServersChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 4: Top 10 PCAP/N & Failure -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-cpu-fill me-2 text-primary"></i>Top 10 PCAP/N by Defect Count</div>
+            <div class="card-body">
+                <canvas id="topPcapnChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-exclamation-triangle-fill me-2 text-primary"></i>Top 10 Failures by Defect Count</div>
+            <div class="card-body">
+                <canvas id="topFailuresChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    // Color palette
+    const COLORS = {
+        blue: '#1565c0',
+        green: '#2e7d32',
+        orange: '#e65100',
+        red: '#c62828',
+        purple: '#6a1b9a',
+        teal: '#00695c',
+        pink: '#ad1457',
+        indigo: '#283593',
+        amber: '#ff8f00',
+        cyan: '#00838f'
+    };
+
+    const CHART_PALETTE = [
+        '#1565c0', '#2e7d32', '#e65100', '#c62828', '#6a1b9a',
+        '#00695c', '#ad1457', '#283593', '#ff8f00', '#00838f',
+        '#4e342e', '#37474f', '#558b2f', '#d84315', '#1a237e'
+    ];
+
+    // Chart instances
+    let defectClassChart = null;
+    let weeklyTrendChart = null;
+    let topStationsChart = null;
+    let topServersChart = null;
+    let topPcapnChart = null;
+    let topFailuresChart = null;
+
+    // Helpers
+    function getFilters() {
+        return {
+            bu: document.getElementById('filterBU').value,
+            date_from: document.getElementById('filterDateFrom').value,
+            date_to: document.getElementById('filterDateTo').value
+        };
+    }
+
+    function buildParams(filters) {
+        const params = new URLSearchParams();
+        if (filters.bu) params.append('bu', filters.bu);
+        if (filters.date_from) params.append('date_from', filters.date_from);
+        if (filters.date_to) params.append('date_to', filters.date_to);
+        return params.toString();
+    }
+
+    // Fetch summary KPIs
+    async function loadSummary() {
+        const filters = getFilters();
+        const qs = buildParams(filters);
+        try {
+            const resp = await fetch('/api/dashboard/summary' + (qs ? '?' + qs : ''));
+            const data = await resp.json();
+            document.getElementById('kpiTotal').textContent = data.total_count.toLocaleString();
+            document.getElementById('kpiWeek').textContent = data.this_week_count.toLocaleString();
+            if (data.bu_counts) {
+                for (const [bu, count] of Object.entries(data.bu_counts)) {
+                    const el = document.getElementById('kpi' + bu);
+                    if (el) el.textContent = count.toLocaleString();
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load summary:', err);
+        }
+    }
+
+    // Defect Class Distribution (Doughnut)
+    async function loadDefectClassChart() {
+        const filters = getFilters();
+        const qs = buildParams(filters);
+        try {
+            const resp = await fetch('/api/dashboard/defect-class-distribution' + (qs ? '?' + qs : ''));
+            const data = await resp.json();
+
+            if (defectClassChart) defectClassChart.destroy();
+
+            const ctx = document.getElementById('defectClassChart').getContext('2d');
+            defectClassChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.data,
+                        backgroundColor: CHART_PALETTE.slice(0, data.labels.length),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                padding: 12,
+                                usePointStyle: true,
+                                pointStyleWidth: 10,
+                                font: { size: 12 }
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('Failed to load defect class chart:', err);
+        }
+    }
+
+    // Weekly Trend (Line) - full year view
+    async function loadWeeklyTrendChart() {
+        const filters = getFilters();
+        const params = new URLSearchParams();
+        if (filters.bu) params.append('bu', filters.bu);
+        try {
+            const resp = await fetch('/api/dashboard/weekly-trend?' + params.toString());
+            const data = await resp.json();
+
+            if (weeklyTrendChart) weeklyTrendChart.destroy();
+
+            const lineColors = [COLORS.blue, COLORS.orange, COLORS.purple, COLORS.teal, COLORS.red, COLORS.green, COLORS.pink];
+            const datasets = data.datasets.map(function (ds, idx) {
+                return {
+                    label: ds.label,
+                    data: ds.data,
+                    borderColor: lineColors[idx % lineColors.length],
+                    backgroundColor: lineColors[idx % lineColors.length] + '20',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                };
+            });
+
+            const ctx = document.getElementById('weeklyTrendChart').getContext('2d');
+            weeklyTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxRotation: 90,
+                                minRotation: 45,
+                                font: { size: 10 },
+                                autoSkip: true,
+                                maxTicksLimit: 26
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                usePointStyle: true,
+                                font: { size: 12 }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('Failed to load weekly trend chart:', err);
+        }
+    }
+
+    // Top 10 Stations (Horizontal Bar)
+    async function loadTopStationsChart() {
+        const filters = getFilters();
+        const qs = buildParams(filters);
+        try {
+            const resp = await fetch('/api/dashboard/top-stations' + (qs ? '?' + qs : ''));
+            const data = await resp.json();
+
+            if (topStationsChart) topStationsChart.destroy();
+
+            const ctx = document.getElementById('topStationsChart').getContext('2d');
+            topStationsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Defect Count',
+                        data: data.data,
+                        backgroundColor: CHART_PALETTE.slice(0, data.labels.length),
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('Failed to load top stations chart:', err);
+        }
+    }
+
+    // Top 10 Servers (Horizontal Bar)
+    async function loadTopServersChart() {
+        const filters = getFilters();
+        const qs = buildParams(filters);
+        try {
+            const resp = await fetch('/api/dashboard/top-servers' + (qs ? '?' + qs : ''));
+            const data = await resp.json();
+
+            if (topServersChart) topServersChart.destroy();
+
+            const ctx = document.getElementById('topServersChart').getContext('2d');
+            topServersChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Defect Count',
+                        data: data.data,
+                        backgroundColor: CHART_PALETTE.slice(0, data.labels.length),
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('Failed to load top servers chart:', err);
+        }
+    }
+
+    // Top 10 PCAP/N (Horizontal Bar)
+    async function loadTopPcapnChart() {
+        const filters = getFilters();
+        const qs = buildParams(filters);
+        try {
+            const resp = await fetch('/api/dashboard/top-pcapn' + (qs ? '?' + qs : ''));
+            const data = await resp.json();
+
+            if (topPcapnChart) topPcapnChart.destroy();
+
+            const ctx = document.getElementById('topPcapnChart').getContext('2d');
+            topPcapnChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Defect Count',
+                        data: data.data,
+                        backgroundColor: CHART_PALETTE.slice(0, data.labels.length),
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('Failed to load top PCAP/N chart:', err);
+        }
+    }
+
+    // Top 10 Failures (Horizontal Bar)
+    async function loadTopFailuresChart() {
+        const filters = getFilters();
+        const qs = buildParams(filters);
+        try {
+            const resp = await fetch('/api/dashboard/top-failures' + (qs ? '?' + qs : ''));
+            const data = await resp.json();
+
+            if (topFailuresChart) topFailuresChart.destroy();
+
+            const ctx = document.getElementById('topFailuresChart').getContext('2d');
+            topFailuresChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Defect Count',
+                        data: data.data,
+                        backgroundColor: CHART_PALETTE.slice(0, data.labels.length),
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('Failed to load top failures chart:', err);
+        }
+    }
+
+    // Load all dashboard data
+    function loadAll() {
+        loadSummary();
+        loadDefectClassChart();
+        loadWeeklyTrendChart();
+        loadTopStationsChart();
+        loadTopServersChart();
+        loadTopPcapnChart();
+        loadTopFailuresChart();
+    }
+
+    // Filter form handler
+    document.getElementById('filterForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        loadAll();
+    });
+
+    // Initial load
+    loadAll();
+})();
+</script>
+{% endblock %}

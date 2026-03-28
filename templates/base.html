@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI DRT System{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <a href="/dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5M3 8.062C3 6.76 4.235 5.765 5.53 5.886a26.6 26.6 0 0 0 4.94 0C11.765 5.765 13 6.76 13 8.062v1.157a.93.93 0 0 1-.765.935c-.845.147-2.34.346-4.235.346s-3.39-.2-4.235-.346A.93.93 0 0 1 3 9.219zm4.542-.827a.25.25 0 0 0-.217.068l-.92.9a25 25 0 0 1-1.871-.183.25.25 0 0 0-.068.495c.55.076 1.232.149 2.02.193a.25.25 0 0 0 .189-.071l.754-.736.847 1.71a.25.25 0 0 0 .404.062l.932-.97a25 25 0 0 0 1.922-.188.25.25 0 0 0-.068-.495c-.538.074-1.207.145-1.98.189a.25.25 0 0 0-.166.076l-.754.785-.842-1.7a.25.25 0 0 0-.182-.135"/>
+                    <path d="M8.5 1.866a1 1 0 1 0-1 0V3h-2A4.5 4.5 0 0 0 1 7.5V8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1v-.5A4.5 4.5 0 0 0 10.5 3h-2zM14 7.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.5A3.5 3.5 0 0 1 5.5 4h5A3.5 3.5 0 0 1 14 7.5"/>
+                </svg>
+                AI DRT System
+            </a>
+            <small>Defect Report Tracking</small>
+        </div>
+        <nav class="sidebar-nav">
+            <a class="nav-link" href="/dashboard">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>Dashboard</span>
+            </a>
+            <a class="nav-link" href="/defects">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Defects</span>
+            </a>
+            <a class="nav-link position-relative" href="/pending" id="navPending">
+                <i class="bi bi-clock-history"></i>
+                <span>Pending</span>
+                <span class="badge rounded-pill bg-warning text-dark ms-auto" id="navPendingBadge" style="font-size:0.63rem; display:none;">0</span>
+            </a>
+            <a class="nav-link" href="/import">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <span>Import</span>
+            </a>
+            <a class="nav-link" href="/settings">
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <i class="bi bi-person-circle me-1"></i>
+                {{ session.get('username', '') }}
+            </div>
+            <button class="btn btn-outline-light btn-logout btn-sm" id="logoutBtn">
+                <i class="bi bi-box-arrow-right me-1"></i>Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="content-wrapper">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer">
+        <div id="appToast" class="toast align-items-center border-0" role="alert"
+             aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                        data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Confirm Modal -->
+    <div class="modal fade" id="appConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-body text-center px-4 pt-4 pb-2">
+                    <div id="appConfirmIcon" class="mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="#dc3545" viewBox="0 0 16 16">
+                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                            <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/>
+                        </svg>
+                    </div>
+                    <p class="fw-semibold mb-1" id="appConfirmTitle">Confirm</p>
+                    <p class="text-muted small" id="appConfirmMessage">Are you sure?</p>
+                </div>
+                <div class="modal-footer border-0 justify-content-center pb-4 pt-0">
+                    <button type="button" class="btn btn-sm btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-danger px-4" id="appConfirmOk">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script>
+        // Global confirm dialog
+        function appConfirm(message, title) {
+            return new Promise(function (resolve) {
+                var modal = document.getElementById('appConfirmModal');
+                document.getElementById('appConfirmIcon').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="#dc3545" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/></svg>';
+                document.getElementById('appConfirmTitle').textContent = title || 'Confirm';
+                document.getElementById('appConfirmMessage').textContent = message || 'Are you sure?';
+                document.getElementById('appConfirmOk').classList.remove('d-none');
+                document.getElementById('appConfirmOk').className = 'btn btn-sm btn-danger px-4';
+                var bsModal = new bootstrap.Modal(modal);
+                var okBtn = document.getElementById('appConfirmOk');
+                function onOk() { cleanup(); bsModal.hide(); resolve(true); }
+                function onHidden() { cleanup(); resolve(false); }
+                function cleanup() {
+                    okBtn.removeEventListener('click', onOk);
+                    modal.removeEventListener('hidden.bs.modal', onHidden);
+                }
+                okBtn.addEventListener('click', onOk);
+                modal.addEventListener('hidden.bs.modal', onHidden);
+                bsModal.show();
+            });
+        }
+
+        // Global alert dialog (informational)
+        function appAlert(message, title, type) {
+            return new Promise(function (resolve) {
+                var modal = document.getElementById('appConfirmModal');
+                var iconColor = type === 'success' ? '#198754' : type === 'danger' ? '#dc3545' : '#f0ad4e';
+                var iconSvg = type === 'success'
+                    ? '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="' + iconColor + '" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>'
+                    : '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="' + iconColor + '" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/></svg>';
+                document.getElementById('appConfirmIcon').innerHTML = iconSvg;
+                document.getElementById('appConfirmTitle').textContent = title || 'Notice';
+                document.getElementById('appConfirmMessage').textContent = message || '';
+                document.getElementById('appConfirmOk').classList.add('d-none');
+                var bsModal = new bootstrap.Modal(modal);
+                function onHidden() { modal.removeEventListener('hidden.bs.modal', onHidden); resolve(); }
+                modal.addEventListener('hidden.bs.modal', onHidden);
+                bsModal.show();
+            });
+        }
+
+        // Logout handler
+        document.getElementById('logoutBtn').addEventListener('click', async function () {
+            try {
+                const response = await fetch('/api/auth/logout', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    window.location.href = '/login';
+                }
+            } catch (err) {
+                window.location.href = '/login';
+            }
+        });
+
+        // Highlight active nav link
+        (function () {
+            const path = window.location.pathname;
+            document.querySelectorAll('.sidebar-nav .nav-link').forEach(function (link) {
+                if (link.getAttribute('href') === path) {
+                    link.classList.add('active');
+                }
+            });
+            // Load pending badge count
+            fetch('/api/draft-records?per_page=1&page=1')
+                .then(r => r.json())
+                .then(d => {
+                    const badge = document.getElementById('navPendingBadge');
+                    if (badge && d.total > 0) {
+                        badge.textContent = d.total;
+                        badge.style.display = '';
+                    }
+                }).catch(() => {});
+        })();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

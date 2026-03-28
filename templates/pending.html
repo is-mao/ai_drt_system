@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Records - DRT System{% endblock %}
+
+{% block content %}
+<style>
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .spin-icon { animation: spin 0.8s linear infinite; display: inline-block; }
+    #draftsTableBody { transition: opacity 0.2s ease; }
+</style>
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h4><i class="bi bi-clock-history me-2" style="color: var(--primary);"></i>Pending Records</h4>
+        <div class="page-subtitle">Records imported from Cesium awaiting completion</div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <button type="button" class="btn btn-sm btn-outline-danger d-none" id="batchDeleteBtn"><i class="bi bi-trash me-1"></i>Delete (<span id="selectedCount">0</span>)</button>
+        <select id="draftFilterBU" class="form-select form-select-sm" style="min-width:130px;">
+            <option value="">All BU</option>
+            {% for bu in bu_options %}
+            <option value="{{ bu }}">{{ bu }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="refreshDraftsBtn"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+            <table class="table table-hover data-table align-middle mb-0" id="draftsTable">
+                <thead>
+                    <tr>
+                        <th class="px-2 text-center" style="width:40px;">
+                            <input type="checkbox" class="form-check-input" id="selectAllDrafts" title="Select All">
+                        </th>
+                        <th class="px-3" style="width:50px;">#</th>
+                        <th style="width:65px;">BU</th>
+                        <th style="width:70px;">WEEK#</th>
+                        <th>PCAP/N</th>
+                        <th>STATION</th>
+                        <th>SERVER</th>
+                        <th>SN</th>
+                        <th>RECORD TIME</th>
+                        <th>FAILURE</th>
+                        <th>DEFECT CLASS</th>
+                        <th>ROOT CAUSE</th>
+                        <th>ACTION</th>
+                        <th style="width:100px;">UPLOADED</th>
+                        <th class="text-center" style="min-width:150px;">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="draftsTableBody">
+                    <tr><td colspan="15" class="text-center text-muted py-5">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Loading...
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<!-- Pagination -->
+<div class="d-flex justify-content-between align-items-center mt-3 px-1">
+    <div class="d-flex align-items-center">
+        <label class="me-2 small text-muted">Per page:</label>
+        <select id="draftPerPageSelect" class="form-select form-select-sm" style="width:80px;">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select>
+        <span class="small text-muted ms-3" id="draftsPagInfo"></span>
+    </div>
+    <nav>
+        <ul class="pagination pagination-sm mb-0" id="draftsPagination"></ul>
+    </nav>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    function showToast(message, type) {
+        const toastEl = document.getElementById('appToast');
+        const toastMsg = document.getElementById('toastMessage');
+        if (toastEl && toastMsg) {
+            toastMsg.textContent = message;
+            toastEl.className = 'toast align-items-center border-0 text-bg-' + (type || 'primary');
+            new bootstrap.Toast(toastEl).show();
+        }
+    }
+
+    let draftPage = 1;
+    let draftPerPage = 25;
+
+    async function loadDrafts() {
+        const bu = document.getElementById('draftFilterBU').value;
+        const params = new URLSearchParams({ page: draftPage, per_page: draftPerPage });
+        if (bu) params.append('bu', bu);
+
+        // Visual feedback
+        const btn = document.getElementById('refreshDraftsBtn');
+        const icon = btn.querySelector('i');
+        btn.disabled = true;
+        icon.classList.add('spin-icon');
+        document.getElementById('draftsTableBody').style.opacity = '0.4';
+
+        try {
+            const resp = await fetch('/api/draft-records?' + params.toString());
+            const data = await resp.json();
+            renderDrafts(data);
+        } catch (err) { console.error(err); }
+        finally {
+            btn.disabled = false;
+            icon.classList.remove('spin-icon');
+            document.getElementById('draftsTableBody').style.opacity = '1';
+        }
+    }
+
+    function renderDrafts(data) {
+        const tbody = document.getElementById('draftsTableBody');
+        tbody.innerHTML = '';
+
+        if (!data.data || !data.data.length) {
+            tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-5">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#bdbdbd" class="mb-2 d-block mx-auto" viewBox="0 0 16 16">' +
+                '<path d="M4.98 4a.5.5 0 0 0-.39.188L1.54 8H6a.5.5 0 0 1 .5.5 1.5 1.5 0 1 0 3 0A.5.5 0 0 1 10 8h4.46l-3.05-3.812A.5.5 0 0 0 11.02 4zm9.954 5H10.45a2.5 2.5 0 0 1-4.9 0H1.066l.32 2.562a.5.5 0 0 0 .497.438h12.234a.5.5 0 0 0 .496-.438zM3.809 3.563A1.5 1.5 0 0 1 4.981 3h6.038a1.5 1.5 0 0 1 1.172.563l3.7 4.625a.5.5 0 0 1 .105.374l-.39 3.124A1.5 1.5 0 0 1 14.117 13H1.883a1.5 1.5 0 0 1-1.489-1.314l-.39-3.124a.5.5 0 0 1 .106-.374z"/>' +
+                '</svg>No pending records.</td></tr>';
+            document.getElementById('draftsPagInfo').textContent = '';
+            document.getElementById('draftsPagination').innerHTML = '';
+            return;
+        }
+
+        data.data.forEach(function (r) {
+            var tr = document.createElement('tr');
+            var dcHtml = r.defect_class
+                ? '<span class="badge bg-success bg-opacity-10 text-success border border-success-subtle">' + escapeHtml(r.defect_class) + '</span>'
+                : '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle">Not set</span>';
+            var rcHtml = (r.root_cause && r.root_cause.trim())
+                ? escapeHtml(r.root_cause)
+                : '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle">Not set</span>';
+            var actHtml = (r.action && r.action.trim())
+                ? escapeHtml(r.action)
+                : '<span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle">Not set</span>';
+            tr.innerHTML =
+                '<td class="px-2 text-center"><input type="checkbox" class="form-check-input draft-checkbox" data-id="' + r.id + '"></td>' +
+                '<td class="px-3 text-muted">' + r.id + '</td>' +
+                '<td><span class="badge" style="background-color:#283593;">' + escapeHtml(r.bu || '') + '</span></td>' +
+                '<td><span class="badge bg-light text-dark border">' + escapeHtml(r.week_number || '') + '</span></td>' +
+                '<td>' + escapeHtml(r.pcap_n || '') + '</td>' +
+                '<td>' + escapeHtml(r.station || '') + '</td>' +
+                '<td>' + escapeHtml(r.server || '') + '</td>' +
+                '<td style="font-family:Consolas,monospace; font-weight:500;">' + escapeHtml(r.sn || '') + '</td>' +
+                '<td style="white-space:nowrap; color:#616161;">' + escapeHtml(r.record_time || '') + '</td>' +
+                '<td title="' + escapeAttr(r.failure || '') + '" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(r.failure || '') + '</td>' +
+                '<td>' + dcHtml + '</td>' +
+                '<td>' + rcHtml + '</td>' +
+                '<td>' + actHtml + '</td>' +
+                '<td style="white-space:nowrap; color:#616161; font-size:0.85rem;">' + (r.created_at ? r.created_at.substring(5, 16).replace(' ', ' ') : '') + '</td>' +
+                '<td style="white-space:nowrap;" class="text-center">' +
+                    '<a href="/defects/' + r.id + '/edit" class="btn btn-outline-success btn-sm me-1 action-btn">Edit</a>' +
+                    '<button class="btn btn-outline-danger btn-sm action-btn draft-delete-btn" data-id="' + r.id + '">Del</button>' +
+                '</td>';
+            tbody.appendChild(tr);
+        });
+
+        // Pagination info
+        var from = (data.page - 1) * data.per_page + 1;
+        var to = Math.min(data.page * data.per_page, data.total);
+        document.getElementById('draftsPagInfo').textContent = data.total + ' records';
+
+        // Pagination buttons
+        var pag = document.getElementById('draftsPagination');
+        pag.innerHTML = '';
+        var prevLi = document.createElement('li');
+        prevLi.className = 'page-item' + (data.page <= 1 ? ' disabled' : '');
+        prevLi.innerHTML = '<a class="page-link" href="#">Prev</a>';
+        prevLi.addEventListener('click', function (e) { e.preventDefault(); if (data.page > 1) { draftPage = data.page - 1; loadDrafts(); } });
+        pag.appendChild(prevLi);
+        for (var p = 1; p <= data.total_pages; p++) {
+            (function(pageNum) {
+                var li = document.createElement('li');
+                li.className = 'page-item' + (pageNum === data.page ? ' active' : '');
+                li.innerHTML = '<a class="page-link" href="#">' + pageNum + '</a>';
+                li.addEventListener('click', function (e) { e.preventDefault(); draftPage = pageNum; loadDrafts(); });
+                pag.appendChild(li);
+            })(p);
+        }
+        var nextLi = document.createElement('li');
+        nextLi.className = 'page-item' + (data.page >= data.total_pages ? ' disabled' : '');
+        nextLi.innerHTML = '<a class="page-link" href="#">Next</a>';
+        nextLi.addEventListener('click', function (e) { e.preventDefault(); if (data.page < data.total_pages) { draftPage = data.page + 1; loadDrafts(); } });
+        pag.appendChild(nextLi);
+
+        // Delete handlers
+        tbody.querySelectorAll('.draft-delete-btn').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+                if (!await appConfirm('Delete this pending record?', 'Delete')) return;
+                try {
+                    await fetch('/api/draft-records/' + btn.dataset.id, { method: 'DELETE' });
+                    showToast('Deleted', 'success');
+                    loadDrafts();
+                } catch (err) { showToast('Delete failed', 'danger'); }
+            });
+        });
+
+        // Checkbox handlers
+        tbody.querySelectorAll('.draft-checkbox').forEach(function (cb) {
+            cb.addEventListener('change', updateSelectState);
+        });
+        document.getElementById('selectAllDrafts').checked = false;
+    }
+
+    function getSelectedIds() {
+        var ids = [];
+        document.querySelectorAll('.draft-checkbox:checked').forEach(function (cb) {
+            ids.push(parseInt(cb.dataset.id));
+        });
+        return ids;
+    }
+
+    function updateSelectState() {
+        var all = document.querySelectorAll('.draft-checkbox');
+        var checked = document.querySelectorAll('.draft-checkbox:checked');
+        var btn = document.getElementById('batchDeleteBtn');
+        var countEl = document.getElementById('selectedCount');
+        var selectAll = document.getElementById('selectAllDrafts');
+
+        countEl.textContent = checked.length;
+        if (checked.length > 0) {
+            btn.classList.remove('d-none');
+        } else {
+            btn.classList.add('d-none');
+        }
+        selectAll.checked = all.length > 0 && all.length === checked.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+    }
+
+    document.getElementById('selectAllDrafts').addEventListener('change', function () {
+        var isChecked = this.checked;
+        document.querySelectorAll('.draft-checkbox').forEach(function (cb) {
+            cb.checked = isChecked;
+        });
+        updateSelectState();
+    });
+
+    document.getElementById('batchDeleteBtn').addEventListener('click', async function () {
+        var ids = getSelectedIds();
+        if (!ids.length) return;
+        if (!await appConfirm('Delete ' + ids.length + ' selected record(s)?', 'Batch Delete')) return;
+        try {
+            var resp = await fetch('/api/draft-records/batch-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: ids })
+            });
+            var result = await resp.json();
+            if (result.success) {
+                showToast('Deleted ' + result.deleted + ' record(s)', 'success');
+                loadDrafts();
+            } else {
+                showToast(result.error || 'Delete failed', 'danger');
+            }
+        } catch (err) { showToast('Delete failed', 'danger'); }
+    })
+
+    document.getElementById('draftFilterBU').addEventListener('change', function () { draftPage = 1; loadDrafts(); });
+    document.getElementById('refreshDraftsBtn').addEventListener('click', loadDrafts);
+    document.getElementById('draftPerPageSelect').addEventListener('change', function () {
+        draftPerPage = parseInt(this.value);
+        draftPage = 1;
+        loadDrafts();
+    });
+
+    function escapeHtml(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    function escapeAttr(t) { return t.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+    // Initial load
+    loadDrafts();
+})();
+</script>
+{% endblock %}

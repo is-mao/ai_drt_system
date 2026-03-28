@@ -1,0 +1,937 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'edit' %}Edit Defect Report #{{ record.id }}{% else %}New Defect Report{% endif %} - DRT System{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h4>
+            <i class="bi bi-{% if mode == 'edit' %}pencil-square{% else %}plus-circle{% endif %} me-2" style="color: var(--primary);"></i>
+            {% if mode == 'edit' %}Edit Defect Report #{{ record.id }}{% else %}New Defect Report{% endif %}
+        </h4>
+    </div>
+    <div>
+        {% if mode == 'edit' and record and record.status == 'draft' %}
+        <a href="/pending" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back to Pending</a>
+        {% else %}
+        <a href="/defects" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back to List</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if mode == 'edit' and record and record.status == 'draft' %}
+<div class="alert alert-warning py-2 mb-3">
+    <strong>Pending Record</strong> — This record was imported from Cesium. Please fill in all required fields (Defect Class, Defect Value, etc.) and save to move it to the Defects list.
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <form id="defectForm">
+            <div class="row g-3">
+                <!-- BU -->
+                <div class="col-md-6">
+                    <label for="fieldBu" class="form-label">BU <span class="text-danger">*</span></label>
+                    <select id="fieldBu" name="bu" class="form-select" required>
+                        <option value="">-- Select BU --</option>
+                        {% for bu in bu_options %}
+                        <option value="{{ bu }}">{{ bu }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Week# (auto-calculated, editable) -->
+                <div class="col-md-6">
+                    <label for="fieldWeekNumber" class="form-label">Week# <span class="text-danger">*</span></label>
+                    <input type="text" id="fieldWeekNumber" name="week_number" class="form-control" required>
+                    <div class="form-text">Auto-calculated (e.g. 26WK01). Editable.</div>
+                </div>
+
+                <!-- PCAP/N -->
+                <div class="col-md-6">
+                    <label for="fieldPcapN" class="form-label">PCAP/N <span class="text-danger">*</span></label>
+                    <input type="text" id="fieldPcapN" name="pcap_n" class="form-control" required>
+                </div>
+
+                <!-- Station -->
+                <div class="col-md-6">
+                    <label for="fieldStation" class="form-label">Station <span class="text-danger">*</span></label>
+                    <input type="text" id="fieldStation" name="station" class="form-control" required>
+                </div>
+
+                <!-- Server -->
+                <div class="col-md-6">
+                    <label for="fieldServer" class="form-label">Server <span class="text-danger">*</span></label>
+                    <input type="text" id="fieldServer" name="server" class="form-control" required>
+                </div>
+
+                <!-- SN -->
+                <div class="col-md-6">
+                    <label for="fieldSn" class="form-label">SN <span class="text-danger">*</span></label>
+                    <input type="text" id="fieldSn" name="sn" class="form-control" required>
+                </div>
+
+                <!-- Record Time (UTC) - optional -->
+                <div class="col-md-6">
+                    <label for="fieldRecordTime" class="form-label">Record Time (UTC)</label>
+                    <input type="datetime-local" id="fieldRecordTime" name="record_time" class="form-control">
+                </div>
+
+                <!-- Failure -->
+                <div class="col-md-6">
+                    <label for="fieldFailure" class="form-label">Failure <span class="text-danger">*</span></label>
+                    <input type="text" id="fieldFailure" name="failure" class="form-control" required>
+                </div>
+
+                <!-- Defect Class -->
+                <div class="col-md-6">
+                    <label for="fieldDefectClass" class="form-label">Defect Class <span class="text-danger">*</span></label>
+                    <select id="fieldDefectClass" name="defect_class" class="form-select" required>
+                        <option value="">-- Select Class --</option>
+                        {% for dc in defect_classes %}
+                        <option value="{{ dc }}">{{ dc }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Defect Value -->
+                <div class="col-md-6">
+                    <label for="fieldDefectValue" class="form-label">Defect Value <span class="text-danger">*</span></label>
+                    <select id="fieldDefectValue" name="defect_value" class="form-select" required>
+                        <option value="">-- Select Value --</option>
+                        {% for dv in defect_values %}
+                        <option value="{{ dv }}">{{ dv }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- PN - optional -->
+                <div class="col-md-6">
+                    <label for="fieldPn" class="form-label">PN</label>
+                    <input type="text" id="fieldPn" name="pn" class="form-control">
+                </div>
+
+                <!-- Component SN - optional -->
+                <div class="col-md-6">
+                    <label for="fieldComponentSn" class="form-label">Component SN</label>
+                    <input type="text" id="fieldComponentSn" name="component_sn" class="form-control">
+                </div>
+
+                <!-- Sequence Log -->
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-1">
+                        <label class="form-label mb-0">Sequence Log</label>
+                        <span class="text-muted small ms-1">(at least one log required)</span>
+                        <button type="button" class="btn btn-outline-danger btn-sm ms-auto py-0 px-2" id="seqLogClearContent" title="Clear content">
+                            <i class="bi bi-eraser me-1"></i>Clear
+                        </button>
+                    </div>
+                    <div class="input-group input-group-sm mb-1">
+                        <label class="btn btn-outline-secondary btn-sm mb-0" for="seqLogFile">
+                            <i class="bi bi-upload me-1"></i>
+                            Upload / Drop File
+                        </label>
+                        <input type="file" id="seqLogFile" class="d-none" accept=".log,.txt,.csv,.json,.gz,.gzm">
+                        <span id="seqLogFileName" class="form-control form-control-sm bg-light text-muted" style="overflow:hidden; text-overflow:ellipsis;">No file selected</span>
+                        <button type="button" id="seqLogClearFile" class="btn btn-outline-danger btn-sm d-none">Clear</button>
+                    </div>
+                    <div class="log-drop-zone" id="seqLogDropZone">
+                        <textarea id="fieldSequenceLog" name="sequence_log" class="form-control log-textarea" rows="8"
+                                  placeholder="Paste sequence log here, or drag & drop file (.txt, .log, .gz, .gzm)..."></textarea>
+                        <div class="drop-overlay d-none">Drop file here</div>
+                    </div>
+                </div>
+
+                <!-- Buffer Log -->
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-1">
+                        <label class="form-label mb-0">Buffer Log</label>
+                        <span class="text-muted small ms-1">(at least one log required)</span>
+                        <button type="button" class="btn btn-outline-danger btn-sm ms-auto py-0 px-2" id="bufLogClearContent" title="Clear content">
+                            <i class="bi bi-eraser me-1"></i>Clear
+                        </button>
+                    </div>
+                    <div class="input-group input-group-sm mb-1">
+                        <label class="btn btn-outline-secondary btn-sm mb-0" for="bufLogFile">
+                            <i class="bi bi-upload me-1"></i>
+                            Upload / Drop File
+                        </label>
+                        <input type="file" id="bufLogFile" class="d-none" accept=".log,.txt,.csv,.json,.gz,.gzm">
+                        <span id="bufLogFileName" class="form-control form-control-sm bg-light text-muted" style="overflow:hidden; text-overflow:ellipsis;">No file selected</span>
+                        <button type="button" id="bufLogClearFile" class="btn btn-outline-danger btn-sm d-none">Clear</button>
+                    </div>
+                    <div class="log-drop-zone" id="bufLogDropZone">
+                        <textarea id="fieldBufferLog" name="buffer_log" class="form-control log-textarea" rows="8"
+                                  placeholder="Paste buffer log here, or drag & drop file (.txt, .log, .gz, .gzm)..."></textarea>
+                        <div class="drop-overlay d-none">Drop file here</div>
+                    </div>
+                </div>
+
+                <!-- AI Diagnosis Section -->
+                <div class="col-12">
+                    <div class="card ai-section">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="bi bi-robot me-1"></i>
+                                AI Diagnosis (Root Cause & Action)
+                            </h6>
+                            <p class="text-muted small mb-2">Provide keywords to guide AI analysis (e.g. component name, error type, suspected cause).</p>
+                            <div class="mb-2">
+                                <input type="text" id="aiKeywords" class="form-control form-control-sm"
+                                       placeholder="Keywords: e.g. power supply, voltage drop, DIMM, firmware crash...">
+                            </div>
+                            <button type="button" id="aiAnalyzeBtn" class="btn btn-sm btn-ai">
+                                <span id="aiSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                Analyze Root Cause & Action with AI
+                            </button>
+
+                            <!-- AI Result -->
+                            <div id="aiResultBox" class="alert alert-info alert-dismissible mt-2 d-none" role="alert">
+                                <strong>AI Suggestion:</strong>
+                                <div class="mt-1">
+                                    <label class="fw-bold small">Root Cause:</label>
+                                    <div id="aiRootCauseText" style="white-space: pre-wrap;"></div>
+                                </div>
+                                <div class="mt-1">
+                                    <label class="fw-bold small">Action:</label>
+                                    <div id="aiActionText" style="white-space: pre-wrap;"></div>
+                                </div>
+                                <div class="mt-2">
+                                    <button type="button" id="aiAcceptBtn" class="btn btn-success btn-sm">Accept Both</button>
+                                    <button type="button" id="aiAcceptRootCauseBtn" class="btn btn-outline-success btn-sm">Accept Root Cause Only</button>
+                                    <button type="button" id="aiAcceptActionBtn" class="btn btn-outline-success btn-sm">Accept Action Only</button>
+                                </div>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+
+                            <!-- AI Error with Search Similar fallback -->
+                            <div id="aiErrorBox" class="alert alert-warning alert-dismissible mt-2 d-none" role="alert">
+                                <span id="aiErrorText"></span>
+                                <button type="button" id="searchSimilarBtn" class="btn btn-outline-primary btn-sm ms-2">Search Similar</button>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+
+                            <!-- Search Similar Result -->
+                            <div id="similarResultBox" class="alert alert-secondary alert-dismissible mt-2 d-none" role="alert">
+                                <strong>Similar Records:</strong>
+                                <div id="similarResultText" class="mt-1" style="white-space: pre-wrap;"></div>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Same History Query Section -->
+                <div class="col-12">
+                    <div class="card history-section">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="bi bi-clock-history me-1"></i>
+                                Same History Query (Root Cause & Action)
+                            </h6>
+                            <p class="text-muted small mb-2">Query latest 3 records with same BU and Failure. Select one to apply.</p>
+                            <button type="button" id="historyQueryBtn" class="btn btn-sm btn-outline-primary">
+                                <span id="historySpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                Query History
+                            </button>
+
+                            <!-- History Results -->
+                            <div id="historyResultBox" class="mt-2 d-none">
+                                <div id="historyNoResult" class="alert alert-secondary d-none mb-0">No matching history found.</div>
+                                <div id="historyCards"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Root Cause (editable, AI-fillable) -->
+                <div class="col-md-6">
+                    <label for="fieldRootCause" class="form-label">Root Cause</label>
+                    <textarea id="fieldRootCause" name="root_cause" class="form-control" rows="6"
+                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
+                </div>
+
+                <!-- Action (editable, AI-fillable) -->
+                <div class="col-md-6">
+                    <label for="fieldAction" class="form-label">Action</label>
+                    <textarea id="fieldAction" name="action" class="form-control" rows="6"
+                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
+                </div>
+
+                <!-- AI Beautification Section -->
+                <div class="col-12">
+                    <div class="card" style="border-left: 4px solid var(--purple); background: var(--purple-light);">
+                        <div class="card-body py-3">
+                            <h6 class="card-title mb-2">
+                                <i class="bi bi-stars me-1" style="color: var(--purple);"></i>
+                                AI Beautification (Root Cause &amp; Action)
+                            </h6>
+                            <p class="text-muted small mb-2">Improve the grammar, clarity, and readability of Root Cause &amp; Action using AI. Review changes before applying.</p>
+                            <button type="button" id="aiBeautifyBtn" class="btn btn-sm" style="background: var(--purple); color: #fff; border: none;">
+                                <span id="beautifySpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                <i class="bi bi-magic me-1"></i>Beautify with AI
+                            </button>
+
+                            <!-- Beautify Result: Before/After comparison -->
+                            <div id="beautifyResultBox" class="mt-3 d-none">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-header py-2 bg-light">
+                                                <span class="badge bg-secondary me-1">Before</span> Root Cause
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="beautifyRcBefore"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100" style="border-color: var(--purple);">
+                                            <div class="card-header py-2" style="background: var(--purple-light);">
+                                                <span class="badge me-1" style="background: var(--purple);">After</span> Root Cause
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="beautifyRcAfter"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-header py-2 bg-light">
+                                                <span class="badge bg-secondary me-1">Before</span> Action
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="beautifyActionBefore"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100" style="border-color: var(--purple);">
+                                            <div class="card-header py-2" style="background: var(--purple-light);">
+                                                <span class="badge me-1" style="background: var(--purple);">After</span> Action
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="beautifyActionAfter"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex gap-2">
+                                    <button type="button" id="beautifyAcceptBtn" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Accept Both</button>
+                                    <button type="button" id="beautifyAcceptRcBtn" class="btn btn-outline-success btn-sm">Accept Root Cause Only</button>
+                                    <button type="button" id="beautifyAcceptActionBtn" class="btn btn-outline-success btn-sm">Accept Action Only</button>
+                                    <button type="button" id="beautifyDiscardBtn" class="btn btn-outline-secondary btn-sm">Discard</button>
+                                </div>
+                            </div>
+
+                            <!-- Beautify Error -->
+                            <div id="beautifyErrorBox" class="alert alert-warning mt-2 d-none mb-0">
+                                <span id="beautifyErrorText"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Buttons -->
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary" id="saveBtn"><i class="bi bi-check-lg me-1"></i>Save</button>
+                {% if mode == 'edit' and record and record.status == 'draft' %}
+                <a href="/pending" class="btn btn-secondary">Cancel</a>
+                {% else %}
+                <a href="/defects" class="btn btn-secondary">Cancel</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Clear Confirm Modal -->
+<div class="modal fade" id="clearConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-body text-center py-4">
+        <div class="mb-3">
+          <span class="d-inline-flex align-items-center justify-content-center bg-danger bg-opacity-10 rounded-circle" style="width:56px;height:56px">
+            <i class="bi bi-eraser-fill text-danger" style="font-size:1.5rem"></i>
+          </span>
+        </div>
+        <h6 class="fw-bold mb-1">Clear Content</h6>
+        <p class="text-muted small mb-0" id="clearConfirmMsg">Clear this log content?</p>
+      </div>
+      <div class="modal-footer border-0 justify-content-center pt-0 pb-3 gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm px-4" id="clearConfirmOk">
+          <i class="bi bi-trash3 me-1"></i>Clear
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const mode = '{{ mode }}';
+    const recordData = {{ record | tojson if record else 'null' }};
+    const isDraft = (mode === 'edit' && recordData && recordData.status === 'draft');
+
+    // Current record ID (for edit mode, to exclude self from historical search)
+    const currentRecordId = (mode === 'edit' && recordData) ? recordData.id : null;
+
+    // ---- Gzip decompression helper ----
+    async function decompressGzip(arrayBuffer) {
+        // Check gzip magic header (1f 8b)
+        var bytes = new Uint8Array(arrayBuffer);
+        if (bytes.length < 2 || bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
+            // Not gzip, read as text
+            return new TextDecoder('utf-8').decode(arrayBuffer);
+        }
+        // Use DecompressionStream API (supported in modern browsers)
+        if (typeof DecompressionStream !== 'undefined') {
+            var ds = new DecompressionStream('gzip');
+            var blob = new Blob([arrayBuffer]);
+            var stream = blob.stream().pipeThrough(ds);
+            var decompressed = await new Response(stream).arrayBuffer();
+            return new TextDecoder('utf-8').decode(decompressed);
+        }
+        throw new Error('Browser does not support gzip decompression. Please decompress the file manually.');
+    }
+
+    // ---- Read file (auto-detect gzip) ----
+    async function readFileContent(file) {
+        var ext = file.name.toLowerCase().split('.').pop();
+        if (ext === 'gz' || ext === 'gzm') {
+            var buf = await file.arrayBuffer();
+            return await decompressGzip(buf);
+        }
+        // Plain text
+        return await file.text();
+    }
+
+    // ---- File upload + drag-and-drop setup ----
+    function setupFileUpload(fileInputId, textareaId, fileNameId, clearBtnId, dropZoneId) {
+        const fileInput = document.getElementById(fileInputId);
+        const textarea = document.getElementById(textareaId);
+        const fileName = document.getElementById(fileNameId);
+        const clearBtn = document.getElementById(clearBtnId);
+        const dropZone = document.getElementById(dropZoneId);
+        const overlay = dropZone.querySelector('.drop-overlay');
+
+        async function handleFile(file) {
+            if (!file) return;
+            fileName.textContent = file.name;
+            fileName.classList.remove('text-muted');
+            clearBtn.classList.remove('d-none');
+            try {
+                textarea.value = await readFileContent(file);
+            } catch (err) {
+                appAlert('Failed to read file: ' + err.message, 'Error', 'danger');
+            }
+        }
+
+        fileInput.addEventListener('change', function () {
+            handleFile(this.files[0]);
+        });
+
+        clearBtn.addEventListener('click', function () {
+            fileInput.value = '';
+            textarea.value = '';
+            fileName.textContent = 'No file selected';
+            fileName.classList.add('text-muted');
+            clearBtn.classList.add('d-none');
+        });
+
+        // Drag-and-drop events
+        ['dragenter', 'dragover'].forEach(function (evtName) {
+            dropZone.addEventListener(evtName, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                overlay.classList.remove('d-none');
+                dropZone.classList.add('drag-active');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (evtName) {
+            dropZone.addEventListener(evtName, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                overlay.classList.add('d-none');
+                dropZone.classList.remove('drag-active');
+            });
+        });
+        dropZone.addEventListener('drop', function (e) {
+            var files = e.dataTransfer.files;
+            if (files.length > 0) handleFile(files[0]);
+        });
+    }
+
+    setupFileUpload('seqLogFile', 'fieldSequenceLog', 'seqLogFileName', 'seqLogClearFile', 'seqLogDropZone');
+    setupFileUpload('bufLogFile', 'fieldBufferLog', 'bufLogFileName', 'bufLogClearFile', 'bufLogDropZone');
+
+    // Clear Content buttons — custom modal confirmation
+    const clearModal = new bootstrap.Modal(document.getElementById('clearConfirmModal'));
+    let clearTargetId = null;
+
+    function showClearConfirm(targetId, label) {
+        const field = document.getElementById(targetId);
+        if (!field || !field.value) { field.value = ''; field.focus(); return; }
+        clearTargetId = targetId;
+        document.getElementById('clearConfirmMsg').textContent = 'Clear ' + label + ' content?';
+        clearModal.show();
+    }
+
+    document.getElementById('clearConfirmOk').addEventListener('click', function () {
+        if (clearTargetId) {
+            const field = document.getElementById(clearTargetId);
+            field.value = '';
+            field.focus();
+            clearTargetId = null;
+        }
+        clearModal.hide();
+    });
+
+    document.getElementById('seqLogClearContent').addEventListener('click', function () {
+        showClearConfirm('fieldSequenceLog', 'Sequence Log');
+    });
+    document.getElementById('bufLogClearContent').addEventListener('click', function () {
+        showClearConfirm('fieldBufferLog', 'Buffer Log');
+    });
+
+    // ---- Auto-calculate Week# for new records ----
+    function calculateCurrentWeek() {
+        const now = new Date();
+        const jan1 = new Date(now.getFullYear(), 0, 1);
+        const dayOfYear = Math.floor((now - jan1) / 86400000) + 1;
+        const weekNum = Math.floor((dayOfYear - 1) / 7) + 1;
+        const yearShort = String(now.getFullYear() % 100);
+        return yearShort + 'WK' + String(weekNum).padStart(2, '0');
+    }
+
+    if (mode !== 'edit') {
+        document.getElementById('fieldWeekNumber').value = calculateCurrentWeek();
+    }
+
+    // ---- Pre-fill for edit mode ----
+    if (mode === 'edit' && recordData) {
+        document.getElementById('fieldBu').value = recordData.bu || '';
+        document.getElementById('fieldWeekNumber').value = recordData.week_number || '';
+        document.getElementById('fieldPcapN').value = recordData.pcap_n || '';
+        document.getElementById('fieldStation').value = recordData.station || '';
+        document.getElementById('fieldServer').value = recordData.server || '';
+        document.getElementById('fieldSn').value = recordData.sn || '';
+        document.getElementById('fieldFailure').value = recordData.failure || '';
+        document.getElementById('fieldDefectClass').value = recordData.defect_class || '';
+        document.getElementById('fieldDefectValue').value = recordData.defect_value || '';
+        document.getElementById('fieldRootCause').value = recordData.root_cause || '';
+        document.getElementById('fieldAction').value = recordData.action || '';
+        document.getElementById('fieldPn').value = recordData.pn || '';
+        document.getElementById('fieldComponentSn').value = recordData.component_sn || '';
+        document.getElementById('fieldSequenceLog').value = recordData.sequence_log || '';
+        document.getElementById('fieldBufferLog').value = recordData.buffer_log || '';
+
+        // Fallback: if both sequence_log and buffer_log are empty but log_content exists,
+        // populate log_content into Sequence Log textarea so the original data is visible
+        if (!recordData.sequence_log && !recordData.buffer_log && recordData.log_content) {
+            document.getElementById('fieldSequenceLog').value = recordData.log_content;
+        }
+
+        if (recordData.record_time) {
+            var dt = recordData.record_time.replace(' ', 'T');
+            if (dt.length > 16) dt = dt.substring(0, 16);
+            document.getElementById('fieldRecordTime').value = dt;
+        }
+    }
+
+    // ---- Collect form data ----
+    function collectFormData() {
+        var seqLog = document.getElementById('fieldSequenceLog').value;
+        var bufLog = document.getElementById('fieldBufferLog').value;
+        var combined = '';
+        if (seqLog) combined += '=== SEQUENCE LOG ===\n' + seqLog;
+        if (bufLog) combined += (combined ? '\n\n' : '') + '=== BUFFER LOG ===\n' + bufLog;
+
+        return {
+            bu: document.getElementById('fieldBu').value,
+            week_number: document.getElementById('fieldWeekNumber').value,
+            pcap_n: document.getElementById('fieldPcapN').value,
+            station: document.getElementById('fieldStation').value,
+            server: document.getElementById('fieldServer').value,
+            sn: document.getElementById('fieldSn').value,
+            record_time: document.getElementById('fieldRecordTime').value,
+            failure: document.getElementById('fieldFailure').value,
+            defect_class: document.getElementById('fieldDefectClass').value,
+            defect_value: document.getElementById('fieldDefectValue').value,
+            root_cause: document.getElementById('fieldRootCause').value,
+            action: document.getElementById('fieldAction').value,
+            pn: document.getElementById('fieldPn').value,
+            component_sn: document.getElementById('fieldComponentSn').value,
+            sequence_log: seqLog,
+            buffer_log: bufLog,
+            log_content: combined,
+        };
+    }
+
+    // ---- Submit form (with at-least-one-log validation) ----
+    document.getElementById('defectForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        // Validate: at least one log must be provided
+        var seqLog = document.getElementById('fieldSequenceLog').value.trim();
+        var bufLog = document.getElementById('fieldBufferLog').value.trim();
+        if (!seqLog && !bufLog) {
+            appAlert('Please provide at least one log (Sequence Log or Buffer Log).', 'Validation');
+            document.getElementById('fieldSequenceLog').focus();
+            return;
+        }
+
+        const data = collectFormData();
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        try {
+            let url, method;
+            if (mode === 'edit') {
+                url = '/api/defects/' + recordData.id;
+                method = 'PUT';
+            } else {
+                url = '/api/defects';
+                method = 'POST';
+            }
+
+            const resp = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            const json = await resp.json();
+
+            if (json.success) {
+                const savedId = json.data ? json.data.id : (recordData ? recordData.id : '');
+                window.location.href = isDraft ? '/pending' : '/defects?saved=' + savedId;
+            } else {
+                appAlert('Error: ' + (json.error || 'Failed to save record.'), 'Save Failed', 'danger');
+            }
+        } catch (err) {
+            appAlert('Error saving record.', 'Save Failed', 'danger');
+            console.error(err);
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
+    });
+
+    // ---- AI Analysis (requires at least one log) ----
+    document.getElementById('aiAnalyzeBtn').addEventListener('click', async function () {
+        const sequenceLog = document.getElementById('fieldSequenceLog').value.trim();
+        const bufferLog = document.getElementById('fieldBufferLog').value.trim();
+
+        if (!sequenceLog && !bufferLog) {
+            appAlert('Please provide at least one log (Sequence Log or Buffer Log) before analyzing.', 'Validation');
+            return;
+        }
+
+        const btn = this;
+        const spinner = document.getElementById('aiSpinner');
+        const resultBox = document.getElementById('aiResultBox');
+        const errorBox = document.getElementById('aiErrorBox');
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        resultBox.classList.add('d-none');
+        errorBox.classList.add('d-none');
+
+        try {
+            const resp = await fetch('/api/ai/analyze-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sequence_log: sequenceLog,
+                    buffer_log: bufferLog,
+                    failure: document.getElementById('fieldFailure').value,
+                    sn: document.getElementById('fieldSn').value,
+                    station: document.getElementById('fieldStation').value,
+                    bu: document.getElementById('fieldBu').value,
+                    defect_class: document.getElementById('fieldDefectClass').value,
+                    keywords: document.getElementById('aiKeywords').value.trim(),
+                    exclude_id: currentRecordId,
+                }),
+            });
+            const json = await resp.json();
+
+            if (json.success && (json.root_cause || json.action)) {
+                // Show source badge
+                let sourceBadge = '';
+                if (json.source === 'ai') sourceBadge = '<span class="badge bg-success me-1">Gemini AI</span>';
+                else if (json.source === 'history') sourceBadge = '<span class="badge bg-warning text-dark me-1">Historical Match</span>';
+                else if (json.source === 'dict') sourceBadge = '<span class="badge bg-secondary me-1">Failure Dictionary</span>';
+
+                let aiWarning = '';
+                if (json.ai_error) aiWarning = '<div class="text-warning small mb-1">AI unavailable: ' + json.ai_error.substring(0, 120) + '</div>';
+
+                document.getElementById('aiRootCauseText').innerHTML = sourceBadge + aiWarning;
+                let rcNode = document.createTextNode(json.root_cause || 'N/A');
+                document.getElementById('aiRootCauseText').appendChild(rcNode);
+                document.getElementById('aiActionText').textContent = json.action || 'N/A';
+                resultBox.classList.remove('d-none');
+            } else {
+                let errMsg = json.ai_error || json.error || 'No result returned.';
+                if (errMsg.includes('quota') || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+                    errMsg = 'Gemini API quota exhausted. Please try again later or check your API key billing at https://ai.google.dev';
+                }
+                document.getElementById('aiErrorText').textContent = errMsg;
+                errorBox.classList.remove('d-none');
+            }
+        } catch (err) {
+            document.getElementById('aiErrorText').textContent = 'AI analysis request failed: ' + (err.message || 'Network error or server not responding');
+            errorBox.classList.remove('d-none');
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+        }
+    });
+
+    // ---- Accept AI suggestions ----
+    // Helper: extract plain text from AI result (skip badges/warnings)
+    function getAiText(elementId) {
+        var el = document.getElementById(elementId);
+        var text = '';
+        el.childNodes.forEach(function(node) {
+            if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
+        });
+        return text.trim() || el.textContent.trim();
+    }
+
+    document.getElementById('aiAcceptBtn').addEventListener('click', function () {
+        document.getElementById('fieldRootCause').value = getAiText('aiRootCauseText');
+        document.getElementById('fieldAction').value = getAiText('aiActionText');
+        document.getElementById('aiResultBox').classList.add('d-none');
+    });
+
+    document.getElementById('aiAcceptRootCauseBtn').addEventListener('click', function () {
+        document.getElementById('fieldRootCause').value = getAiText('aiRootCauseText');
+    });
+
+    document.getElementById('aiAcceptActionBtn').addEventListener('click', function () {
+        document.getElementById('fieldAction').value = getAiText('aiActionText');
+    });
+
+    // ---- Search Similar ----
+    document.getElementById('searchSimilarBtn').addEventListener('click', async function () {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Searching...';
+
+        const similarBox = document.getElementById('similarResultBox');
+        similarBox.classList.add('d-none');
+
+        try {
+            const resp = await fetch('/api/ai/search-similar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    failure: document.getElementById('fieldFailure').value,
+                    sn: document.getElementById('fieldSn').value,
+                    station: document.getElementById('fieldStation').value,
+                    exclude_id: currentRecordId,
+                }),
+            });
+            const json = await resp.json();
+
+            if (json.success && json.results) {
+                let text = '';
+                json.results.forEach(function (r, i) {
+                    text += (i + 1) + '. [ID#' + r.id + '] ' + (r.failure || 'N/A') +
+                            '\n   Root Cause: ' + (r.root_cause || 'N/A') +
+                            '\n   Action: ' + (r.action || 'N/A') + '\n\n';
+                });
+                document.getElementById('similarResultText').textContent = text || 'No similar records found.';
+            } else {
+                document.getElementById('similarResultText').textContent =
+                    json.error || 'No similar records found.';
+            }
+            similarBox.classList.remove('d-none');
+        } catch (err) {
+            document.getElementById('similarResultText').textContent = 'Search request failed.';
+            similarBox.classList.remove('d-none');
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Search Similar';
+        }
+    });
+
+    // ---- Same History Query ----
+    document.getElementById('historyQueryBtn').addEventListener('click', async function () {
+        const bu = document.getElementById('fieldBu').value.trim();
+        const failure = document.getElementById('fieldFailure').value.trim();
+
+        if (!bu || !failure) {
+            appAlert('Please fill in BU and Failure first.', 'Validation');
+            return;
+        }
+
+        const btn = this;
+        const spinner = document.getElementById('historySpinner');
+        const resultBox = document.getElementById('historyResultBox');
+        const noResult = document.getElementById('historyNoResult');
+        const cardsDiv = document.getElementById('historyCards');
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        resultBox.classList.add('d-none');
+        noResult.classList.add('d-none');
+        cardsDiv.innerHTML = '';
+
+        try {
+            const resp = await fetch('/api/ai/history-query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bu: bu,
+                    failure: failure,
+                    exclude_id: currentRecordId,
+                }),
+            });
+            const json = await resp.json();
+
+            resultBox.classList.remove('d-none');
+
+            if (json.success && json.results && json.results.length > 0) {
+                json.results.forEach(function (r, i) {
+                    const card = document.createElement('div');
+                    card.className = 'card mb-2 border-start border-primary border-3';
+                    card.innerHTML =
+                        '<div class="card-body py-2 px-3">' +
+                            '<div class="d-flex justify-content-between align-items-start mb-1">' +
+                                '<span class="badge bg-secondary me-2">#' + (i + 1) + '</span>' +
+                                '<small class="text-muted">ID: ' + r.id + ' | ' + r.record_time + ' | SN: ' + (r.sn || 'N/A') + ' | Station: ' + (r.station || 'N/A') + '</small>' +
+                            '</div>' +
+                            '<div class="row g-2">' +
+                                '<div class="col-md-6">' +
+                                    '<label class="small text-muted">Root Cause:</label>' +
+                                    '<div class="small" style="white-space:pre-wrap;">' + escapeHtml(r.root_cause || 'N/A') + '</div>' +
+                                '</div>' +
+                                '<div class="col-md-6">' +
+                                    '<label class="small text-muted">Action:</label>' +
+                                    '<div class="small" style="white-space:pre-wrap;">' + escapeHtml(r.action || 'N/A') + '</div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="mt-2">' +
+                                '<button type="button" class="btn btn-primary btn-sm histApplyBoth" data-idx="' + i + '">Apply Both</button> ' +
+                                '<button type="button" class="btn btn-outline-primary btn-sm histApplyRC" data-idx="' + i + '">Apply Root Cause</button> ' +
+                                '<button type="button" class="btn btn-outline-primary btn-sm histApplyAction" data-idx="' + i + '">Apply Action</button>' +
+                            '</div>' +
+                        '</div>';
+                    cardsDiv.appendChild(card);
+                });
+
+                // Attach click handlers
+                var historyData = json.results;
+                cardsDiv.querySelectorAll('.histApplyBoth').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var idx = parseInt(this.dataset.idx);
+                        document.getElementById('fieldRootCause').value = historyData[idx].root_cause || '';
+                        document.getElementById('fieldAction').value = historyData[idx].action || '';
+                    });
+                });
+                cardsDiv.querySelectorAll('.histApplyRC').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var idx = parseInt(this.dataset.idx);
+                        document.getElementById('fieldRootCause').value = historyData[idx].root_cause || '';
+                    });
+                });
+                cardsDiv.querySelectorAll('.histApplyAction').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var idx = parseInt(this.dataset.idx);
+                        document.getElementById('fieldAction').value = historyData[idx].action || '';
+                    });
+                });
+            } else {
+                noResult.classList.remove('d-none');
+            }
+        } catch (err) {
+            resultBox.classList.remove('d-none');
+            noResult.textContent = 'Query request failed.';
+            noResult.classList.remove('d-none');
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+        }
+    });
+
+    // ---- AI Beautification ----
+    var beautifyNewRc = '', beautifyNewAction = '';
+
+    document.getElementById('aiBeautifyBtn').addEventListener('click', async function () {
+        var rootCause = document.getElementById('fieldRootCause').value.trim();
+        var action = document.getElementById('fieldAction').value.trim();
+
+        if (!rootCause && !action) {
+            appAlert('Please fill in Root Cause or Action first before beautifying.', 'Validation');
+            return;
+        }
+
+        var btn = this;
+        var spinner = document.getElementById('beautifySpinner');
+        var resultBox = document.getElementById('beautifyResultBox');
+        var errorBox = document.getElementById('beautifyErrorBox');
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        resultBox.classList.add('d-none');
+        errorBox.classList.add('d-none');
+
+        try {
+            var resp = await fetch('/api/ai/beautify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ root_cause: rootCause, action: action }),
+            });
+            var json = await resp.json();
+
+            if (json.success) {
+                beautifyNewRc = json.root_cause || rootCause;
+                beautifyNewAction = json.action || action;
+
+                document.getElementById('beautifyRcBefore').textContent = rootCause || '(empty)';
+                document.getElementById('beautifyRcAfter').textContent = beautifyNewRc;
+                document.getElementById('beautifyActionBefore').textContent = action || '(empty)';
+                document.getElementById('beautifyActionAfter').textContent = beautifyNewAction;
+                resultBox.classList.remove('d-none');
+            } else {
+                document.getElementById('beautifyErrorText').textContent = json.error || 'Beautification failed.';
+                errorBox.classList.remove('d-none');
+            }
+        } catch (err) {
+            document.getElementById('beautifyErrorText').textContent = 'Request failed: ' + (err.message || 'Network error');
+            errorBox.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+        }
+    });
+
+    document.getElementById('beautifyAcceptBtn').addEventListener('click', function () {
+        document.getElementById('fieldRootCause').value = beautifyNewRc;
+        document.getElementById('fieldAction').value = beautifyNewAction;
+        document.getElementById('beautifyResultBox').classList.add('d-none');
+    });
+
+    document.getElementById('beautifyAcceptRcBtn').addEventListener('click', function () {
+        document.getElementById('fieldRootCause').value = beautifyNewRc;
+    });
+
+    document.getElementById('beautifyAcceptActionBtn').addEventListener('click', function () {
+        document.getElementById('fieldAction').value = beautifyNewAction;
+    });
+
+    document.getElementById('beautifyDiscardBtn').addEventListener('click', function () {
+        document.getElementById('beautifyResultBox').classList.add('d-none');
+    });
+
+    // HTML escape helper
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+})();
+</script>
+{% endblock %}
