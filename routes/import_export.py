@@ -330,12 +330,18 @@ def export_excel():
         cell.alignment = header_align
         cell.border = thin_border
 
-    # Write data rows
+    # Write data rows — strip illegal XML control characters for openpyxl
+    import re
+
+    _illegal_xml_re = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
     for row_idx, record in enumerate(records, start=2):
         for col_idx, (field, _) in enumerate(columns, start=1):
             value = getattr(record, field, "")
             if isinstance(value, datetime):
                 value = value.strftime("%Y-%m-%d %H:%M:%S")
+            elif isinstance(value, str):
+                value = _illegal_xml_re.sub("", value)
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.border = thin_border
 
