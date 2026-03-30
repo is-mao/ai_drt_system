@@ -123,18 +123,34 @@ document.addEventListener('DOMContentLoaded', function() {
         resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Testing connection...';
 
         const inputKey = document.getElementById('apiKey').value.trim();
+        const logLines = [];
+        logLines.push('[' + new Date().toLocaleTimeString() + '] Test Connection started');
+        logLines.push('Input key from textbox: ' + (inputKey ? inputKey.substring(0,8) + '...' + inputKey.substring(inputKey.length-4) + ' (length=' + inputKey.length + ')' : '(empty, will use saved key)'));
+
         fetch('/api/settings/ai/test', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({api_key: inputKey})
         })
-        .then(r => r.json())
+        .then(r => {
+            logLines.push('HTTP status: ' + r.status);
+            return r.json();
+        })
         .then(data => {
-            if (data.success) {
-                resultDiv.innerHTML = '<div class="alert alert-success py-2 mb-0">Connected successfully!</div>';
-            } else {
-                resultDiv.innerHTML = '<div class="alert alert-danger py-2 mb-0">Connection failed: ' + data.message + '</div>';
-            }
+            logLines.push('Response: success=' + data.success);
+            logLines.push('Message: ' + (data.message || '(none)'));
+            if (data.debug) logLines.push('Debug: ' + data.debug);
+            var alertClass = data.success ? 'alert-success' : 'alert-danger';
+            var statusText = data.success ? 'Connected successfully!' : 'Connection failed: ' + escapeHtml(data.message || 'Unknown error');
+            resultDiv.innerHTML = '<div class="alert ' + alertClass + ' py-2 mb-2">' + statusText + '</div>' +
+                '<details class="small"><summary class="text-muted" style="cursor:pointer;">Debug Log</summary>' +
+                '<pre class="bg-light p-2 mt-1 mb-0" style="font-size:0.75rem; max-height:200px; overflow:auto;">' + escapeHtml(logLines.join('\n')) + '</pre></details>';
+        })
+        .catch(err => {
+            logLines.push('Fetch error: ' + err.message);
+            resultDiv.innerHTML = '<div class="alert alert-danger py-2 mb-2">Request failed: ' + escapeHtml(err.message) + '</div>' +
+                '<details class="small"><summary class="text-muted" style="cursor:pointer;">Debug Log</summary>' +
+                '<pre class="bg-light p-2 mt-1 mb-0" style="font-size:0.75rem;">' + escapeHtml(logLines.join('\n')) + '</pre></details>';
         });
     });
 

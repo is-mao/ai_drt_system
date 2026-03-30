@@ -7,7 +7,7 @@ from services.failure_dict import lookup_failure
 from services.historical_search import search_similar_failures
 
 # Models to try in order (fallback if quota exhausted on one)
-GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash"]
 
 # Retry config (like stock_analysis)
 MAX_RETRIES = 2
@@ -401,32 +401,42 @@ def _call_gemini_legacy(api_key, log_content, failure, defect_class, station, bu
 
 
 def test_ai_connection(api_key):
-    """Test if the Gemini API key is valid."""
-    try:
-        from google import genai
+    """Test if the Gemini API key is valid. Supports comma-separated keys."""
+    keys = [k.strip() for k in api_key.split(",") if k.strip()]
+    if not keys:
+        return False, "No API key provided."
 
-        client = genai.Client(api_key=api_key)
-        for model_name in GEMINI_MODELS:
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents="Say 'connected' if you can read this.",
-                )
-                return True, f"[{model_name}] {response.text}"
-            except Exception as e:
-                if "quota" in str(e).lower() or "429" in str(e):
-                    continue
-                raise
-        return False, "All models quota exhausted. Check billing at https://ai.google.dev"
-    except ImportError:
+    last_error = ""
+    for key in keys:
         try:
-            import google.generativeai as genai
+            from google import genai
 
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            response = model.generate_content("Say 'connected' if you can read this.")
-            return True, response.text
+            client = genai.Client(api_key=key)
+            for model_name in GEMINI_MODELS:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents="Say 'connected' if you can read this.",
+                    )
+                    key_hint = f"...{key[-4:]}" if len(key) > 4 else "****"
+                    return True, f"[{model_name}] {response.text} (key {key_hint})"
+                except Exception as e:
+                    if "quota" in str(e).lower() or "429" in str(e):
+                        continue
+                    raise
+            last_error = f"Key ...{key[-4:]}: all models quota exhausted"
+        except ImportError:
+            try:
+                import google.generativeai as genai
+
+                genai.configure(api_key=key)
+                model = genai.GenerativeModel("gemini-2.0-flash")
+                response = model.generate_content("Say 'connected' if you can read this.")
+                key_hint = f"...{key[-4:]}" if len(key) > 4 else "****"
+                return True, f"{response.text} (key {key_hint})"
+            except Exception as e:
+                last_error = str(e)
         except Exception as e:
-            return False, str(e)
-    except Exception as e:
-        return False, str(e)
+            last_error = str(e)
+
+    return False, last_error or "All keys failed"

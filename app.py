@@ -114,4 +114,9 @@ app = create_app()
 if __name__ == "__main__":
     debug = os.environ.get("FLASK_DEBUG", "1") == "1"
     port = int(os.environ.get("PORT", 5001))
-    app.run(debug=debug, host="0.0.0.0", port=port)
+    app.run(
+        debug=debug,
+        host="0.0.0.0",
+        port=port,
+        exclude_patterns=["*.pyc", ".*", ".venv/*", "venv/*", "__pycache__/*", "logs/*"],
+    )

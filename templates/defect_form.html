@@ -133,20 +133,8 @@
                             <i class="bi bi-eraser me-1"></i>Clear
                         </button>
                     </div>
-                    <div class="input-group input-group-sm mb-1">
-                        <label class="btn btn-outline-secondary btn-sm mb-0" for="seqLogFile">
-                            <i class="bi bi-upload me-1"></i>
-                            Upload / Drop File
-                        </label>
-                        <input type="file" id="seqLogFile" class="d-none" accept=".log,.txt,.csv,.json,.gz,.gzm">
-                        <span id="seqLogFileName" class="form-control form-control-sm bg-light text-muted" style="overflow:hidden; text-overflow:ellipsis;">No file selected</span>
-                        <button type="button" id="seqLogClearFile" class="btn btn-outline-danger btn-sm d-none">Clear</button>
-                    </div>
-                    <div class="log-drop-zone" id="seqLogDropZone">
-                        <textarea id="fieldSequenceLog" name="sequence_log" class="form-control log-textarea" rows="8"
-                                  placeholder="Paste sequence log here, or drag & drop file (.txt, .log, .gz, .gzm)..."></textarea>
-                        <div class="drop-overlay d-none">Drop file here</div>
-                    </div>
+                    <textarea id="fieldSequenceLog" name="sequence_log" class="form-control log-textarea" rows="8"
+                              placeholder="Paste sequence log here..."></textarea>
                 </div>
 
                 <!-- Buffer Log -->
@@ -158,20 +146,8 @@
                             <i class="bi bi-eraser me-1"></i>Clear
                         </button>
                     </div>
-                    <div class="input-group input-group-sm mb-1">
-                        <label class="btn btn-outline-secondary btn-sm mb-0" for="bufLogFile">
-                            <i class="bi bi-upload me-1"></i>
-                            Upload / Drop File
-                        </label>
-                        <input type="file" id="bufLogFile" class="d-none" accept=".log,.txt,.csv,.json,.gz,.gzm">
-                        <span id="bufLogFileName" class="form-control form-control-sm bg-light text-muted" style="overflow:hidden; text-overflow:ellipsis;">No file selected</span>
-                        <button type="button" id="bufLogClearFile" class="btn btn-outline-danger btn-sm d-none">Clear</button>
-                    </div>
-                    <div class="log-drop-zone" id="bufLogDropZone">
-                        <textarea id="fieldBufferLog" name="buffer_log" class="form-control log-textarea" rows="8"
-                                  placeholder="Paste buffer log here, or drag & drop file (.txt, .log, .gz, .gzm)..."></textarea>
-                        <div class="drop-overlay d-none">Drop file here</div>
-                    </div>
+                    <textarea id="fieldBufferLog" name="buffer_log" class="form-control log-textarea" rows="8"
+                              placeholder="Paste buffer log here..."></textarea>
                 </div>
 
                 <!-- AI Diagnosis Section -->
@@ -498,64 +474,7 @@
         return await file.text();
     }
 
-    // ---- File upload + drag-and-drop setup ----
-    function setupFileUpload(fileInputId, textareaId, fileNameId, clearBtnId, dropZoneId) {
-        const fileInput = document.getElementById(fileInputId);
-        const textarea = document.getElementById(textareaId);
-        const fileName = document.getElementById(fileNameId);
-        const clearBtn = document.getElementById(clearBtnId);
-        const dropZone = document.getElementById(dropZoneId);
-        const overlay = dropZone.querySelector('.drop-overlay');
-
-        async function handleFile(file) {
-            if (!file) return;
-            fileName.textContent = file.name;
-            fileName.classList.remove('text-muted');
-            clearBtn.classList.remove('d-none');
-            try {
-                textarea.value = await readFileContent(file);
-            } catch (err) {
-                appAlert('Failed to read file: ' + err.message, 'Error', 'danger');
-            }
-        }
-
-        fileInput.addEventListener('change', function () {
-            handleFile(this.files[0]);
-        });
-
-        clearBtn.addEventListener('click', function () {
-            fileInput.value = '';
-            textarea.value = '';
-            fileName.textContent = 'No file selected';
-            fileName.classList.add('text-muted');
-            clearBtn.classList.add('d-none');
-        });
-
-        // Drag-and-drop events
-        ['dragenter', 'dragover'].forEach(function (evtName) {
-            dropZone.addEventListener(evtName, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                overlay.classList.remove('d-none');
-                dropZone.classList.add('drag-active');
-            });
-        });
-        ['dragleave', 'drop'].forEach(function (evtName) {
-            dropZone.addEventListener(evtName, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                overlay.classList.add('d-none');
-                dropZone.classList.remove('drag-active');
-            });
-        });
-        dropZone.addEventListener('drop', function (e) {
-            var files = e.dataTransfer.files;
-            if (files.length > 0) handleFile(files[0]);
-        });
-    }
-
-    setupFileUpload('seqLogFile', 'fieldSequenceLog', 'seqLogFileName', 'seqLogClearFile', 'seqLogDropZone');
-    setupFileUpload('bufLogFile', 'fieldBufferLog', 'bufLogFileName', 'bufLogClearFile', 'bufLogDropZone');
+    // ---- File upload removed, textarea-only mode ----
 
     // Clear Content buttons — custom modal confirmation
     const clearModal = new bootstrap.Modal(document.getElementById('clearConfirmModal'));
