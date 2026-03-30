@@ -314,16 +314,17 @@ Defect Class: {defect_class}
 
 IMPORTANT formatting rules:
 - Plain text ONLY. No markdown, no bold (**), no asterisks, no special formatting.
-- Root Cause: 1-3 concise sentences.
-- Action: numbered corrective steps. Only include steps for the actual cause category:
+- Root Cause: 1-2 SHORT sentences MAXIMUM. Be extremely concise — state ONLY the direct cause and the specific component/signal involved. No background explanation, no log quoting, no context repetition. Example good format: "DIMM slot A1 memory module defective, causing memory test failure."
+- Action: numbered corrective steps (2-4 steps max). Only include steps for the actual cause category:
   * If operator issue: only operator-related steps
   * If test program issue: only test program-related steps
   * If test station/equipment issue: only station/equipment-related steps
   * May combine categories if multiple causes exist
+  * Each step should be one short sentence
   * Last step must always be: Retest and confirm PASS
 
 Format your response EXACTLY as:
-Root Cause: [plain text analysis]
+Root Cause: [1-2 short sentences only]
 Action:
 1. [step]
 2. [step]
