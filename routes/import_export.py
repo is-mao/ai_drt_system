@@ -72,7 +72,7 @@ def import_page():
 @import_export_bp.route("/pending", methods=["GET"])
 @login_required
 def pending_page():
-    return render_template("pending.html", bu_options=Config.BU_OPTIONS)
+    return render_template("pending.html", bu_options=Config.BU_OPTIONS, defect_classes=Config.DEFECT_CLASSES)
 
 
 @import_export_bp.route("/api/import/excel", methods=["POST"])
@@ -679,16 +679,64 @@ def import_cesium():
 @import_export_bp.route("/api/draft-records", methods=["GET"])
 @login_required
 def api_draft_records():
-    """Get draft records for the import page."""
+    """Get draft records with filtering and sorting."""
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 25, type=int)
     bu = request.args.get("bu", "").strip()
+    station = request.args.get("station", "").strip()
+    defect_class = request.args.get("defect_class", "").strip()
+    defect_value = request.args.get("defect_value", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    search = request.args.get("search", "").strip()
+    sort_by = request.args.get("sort_by", "created_at").strip()
+    sort_dir = request.args.get("sort_dir", "desc").strip()
 
     query = DefectReport.query.filter_by(status="draft")
     if bu:
         query = query.filter(DefectReport.bu == bu)
+    if station:
+        query = query.filter(DefectReport.station.ilike(f"%{station}%"))
+    if defect_class:
+        query = query.filter(DefectReport.defect_class == defect_class)
+    if defect_value:
+        query = query.filter(DefectReport.defect_value == defect_value)
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(DefectReport.record_time >= dt_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d")
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(DefectReport.record_time <= dt_to)
+        except ValueError:
+            pass
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                DefectReport.sn.ilike(search_pattern),
+                DefectReport.failure.ilike(search_pattern),
+                DefectReport.root_cause.ilike(search_pattern),
+                DefectReport.pn.ilike(search_pattern),
+                DefectReport.pcap_n.ilike(search_pattern),
+                DefectReport.server.ilike(search_pattern),
+            )
+        )
 
-    query = query.order_by(DefectReport.created_at.desc())
+    # Sorting
+    allowed_sort = {
+        "id", "bu", "week_number", "pcap_n", "station", "server",
+        "sn", "record_time", "failure", "defect_class", "defect_value", "created_at",
+    }
+    if sort_by not in allowed_sort:
+        sort_by = "created_at"
+    sort_col = getattr(DefectReport, sort_by)
+    query = query.order_by(sort_col.asc() if sort_dir == "asc" else sort_col.desc())
+
     total = query.count()
     from math import ceil
 

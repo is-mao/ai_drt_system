@@ -222,4 +222,4 @@ class Config:
     ))
 
     # BU options
-    BU_OPTIONS = ["CRBU", "WNBU", "SRGBU", "UABU", "CSPBU"]
+    BU_OPTIONS = ["CRBU", "WNBU", "SRGBU", "UABU", "CSPBU", "IOTBU"]

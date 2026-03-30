@@ -14,13 +14,59 @@
     </div>
     <div class="d-flex gap-2 align-items-center">
         <button type="button" class="btn btn-sm btn-outline-danger d-none" id="batchDeleteBtn"><i class="bi bi-trash me-1"></i>Delete (<span id="selectedCount">0</span>)</button>
-        <select id="draftFilterBU" class="form-select form-select-sm" style="min-width:130px;">
-            <option value="">All BU</option>
-            {% for bu in bu_options %}
-            <option value="{{ bu }}">{{ bu }}</option>
-            {% endfor %}
-        </select>
         <button type="button" class="btn btn-sm btn-outline-primary" id="refreshDraftsBtn"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="card filter-card mb-3">
+    <div class="card-body py-2">
+        <form id="draftFilterForm" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label mb-0">BU</label>
+                <select id="draftFilterBU" class="form-select form-select-sm" style="width:110px;">
+                    <option value="">All</option>
+                    {% for bu in bu_options %}
+                    <option value="{{ bu }}">{{ bu }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0">Defect Class</label>
+                <select id="draftFilterDefectClass" class="form-select form-select-sm" style="width:160px;">
+                    <option value="">All</option>
+                    {% for dc in defect_classes %}
+                    <option value="{{ dc }}">{{ dc }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0">Defect Value</label>
+                <select id="draftFilterDefectValue" class="form-select form-select-sm" style="width:200px;">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0">Station</label>
+                <input type="text" id="draftFilterStation" class="form-control form-control-sm" style="width:160px;" placeholder="Station">
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0">Date From</label>
+                <input type="date" id="draftFilterDateFrom" class="form-control form-control-sm" style="width:140px;">
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0">Date To</label>
+                <input type="date" id="draftFilterDateTo" class="form-control form-control-sm" style="width:140px;">
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0">Search</label>
+                <input type="text" id="draftFilterSearch" class="form-control form-control-sm" style="width:220px;" placeholder="SN, Failure, PN...">
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="submit" id="draftApplyBtn" class="btn btn-primary btn-sm"><i class="bi bi-funnel-fill me-1" id="draftApplyIcon"></i>Apply</button>
+                <button type="button" id="draftResetBtn" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -32,19 +78,19 @@
                         <th class="text-center" style="width:2.5%;">
                             <input type="checkbox" class="form-check-input" id="selectAllDrafts" title="Select All">
                         </th>
-                        <th style="width:3%;">#</th>
-                        <th style="width:3.5%;">BU</th>
-                        <th style="width:4%;">WK#</th>
-                        <th style="width:7%;">PCAP/N</th>
-                        <th style="width:5%;">STATION</th>
-                        <th style="width:5%;">SERVER</th>
-                        <th style="width:8%;">SN</th>
-                        <th style="width:10%;">REC TIME</th>
-                        <th style="width:11%;">FAILURE</th>
-                        <th style="width:7%;">CLASS</th>
+                        <th class="sortable" data-sort="id" style="width:3%;"># <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="bu" style="width:3.5%;">BU <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="week_number" style="width:4%;">WK# <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="pcap_n" style="width:7%;">PCAP/N <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="station" style="width:5%;">STATION <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="server" style="width:5%;">SERVER <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="sn" style="width:8%;">SN <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="record_time" style="width:10%;">REC TIME <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="failure" style="width:11%;">FAILURE <span class="sort-arrow"></span></th>
+                        <th class="sortable" data-sort="defect_class" style="width:7%;">CLASS <span class="sort-arrow"></span></th>
                         <th style="width:10%;">ROOT CAUSE</th>
                         <th style="width:9%;">ACTION</th>
-                        <th style="width:6%;">UPLOADED</th>
+                        <th class="sortable" data-sort="created_at" style="width:6%;">UPLOADED <span class="sort-arrow"></span></th>
                         <th class="text-center" style="width:9%;">ACTIONS</th>
                     </tr>
                 </thead>
@@ -90,6 +136,8 @@
 
     let draftPage = 1;
     let draftPerPage = 25;
+    let sortBy = 'created_at';
+    let sortDir = 'desc';
 
     function updatePendingBadge() {
         fetch('/api/draft-records?per_page=1&page=1')
@@ -104,9 +152,28 @@
     }
 
     async function loadDrafts() {
-        const bu = document.getElementById('draftFilterBU').value;
-        const params = new URLSearchParams({ page: draftPage, per_page: draftPerPage });
-        if (bu) params.append('bu', bu);
+        const params = new URLSearchParams({
+            page: draftPage,
+            per_page: draftPerPage,
+            sort_by: sortBy,
+            sort_dir: sortDir,
+        });
+
+        var bu = document.getElementById('draftFilterBU').value;
+        var dc = document.getElementById('draftFilterDefectClass').value;
+        var dv = document.getElementById('draftFilterDefectValue').value;
+        var st = document.getElementById('draftFilterStation').value.trim();
+        var df = document.getElementById('draftFilterDateFrom').value;
+        var dt = document.getElementById('draftFilterDateTo').value;
+        var se = document.getElementById('draftFilterSearch').value.trim();
+
+        if (bu) params.set('bu', bu);
+        if (dc) params.set('defect_class', dc);
+        if (dv) params.set('defect_value', dv);
+        if (st) params.set('station', st);
+        if (df) params.set('date_from', df);
+        if (dt) params.set('date_to', dt);
+        if (se) params.set('search', se);
 
         // Visual feedback
         const btn = document.getElementById('refreshDraftsBtn');
@@ -285,6 +352,118 @@
     });
 
     function escapeAttr(t) { return t.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+    // ---- Filter: Defect Class → Value cascading ----
+    var _draftClassValueMap = {};
+    fetch('/api/defect-options').then(function(r) { return r.json(); }).then(function(data) {
+        _draftClassValueMap = data;
+        updateDraftFilterValue();
+    });
+
+    function updateDraftFilterValue() {
+        var cls = document.getElementById('draftFilterDefectClass').value;
+        var sel = document.getElementById('draftFilterDefectValue');
+        sel.innerHTML = '<option value="">All</option>';
+        if (!cls) {
+            var allVals = {};
+            Object.keys(_draftClassValueMap).forEach(function(c) {
+                Object.keys(_draftClassValueMap[c]).forEach(function(v) { allVals[v] = 1; });
+            });
+            Object.keys(allVals).sort().forEach(function(v) {
+                var opt = document.createElement('option');
+                opt.value = v; opt.textContent = v;
+                sel.appendChild(opt);
+            });
+        } else {
+            var values = _draftClassValueMap[cls];
+            if (values) {
+                Object.keys(values).sort().forEach(function(v) {
+                    var opt = document.createElement('option');
+                    opt.value = v; opt.textContent = v;
+                    sel.appendChild(opt);
+                });
+            }
+        }
+    }
+
+    document.getElementById('draftFilterDefectClass').addEventListener('change', function() {
+        document.getElementById('draftFilterDefectValue').value = '';
+        updateDraftFilterValue();
+    });
+
+    // ---- Sorting ----
+    document.querySelectorAll('#draftsTable .sortable').forEach(function (th) {
+        th.addEventListener('click', function () {
+            if (window._isResizing) return;
+            var col = this.getAttribute('data-sort');
+            if (sortBy === col) {
+                sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortBy = col;
+                sortDir = 'asc';
+            }
+            document.querySelectorAll('#draftsTable .sortable').forEach(function (h) {
+                h.classList.remove('asc', 'desc');
+            });
+            this.classList.add(sortDir);
+            draftPage = 1;
+            loadDrafts();
+        });
+    });
+
+    // Mark initial sort column
+    (function () {
+        var initCol = document.querySelector('#draftsTable .sortable[data-sort="' + sortBy + '"]');
+        if (initCol) initCol.classList.add(sortDir);
+    })();
+
+    // ---- Filter Form Submit ----
+    document.getElementById('draftFilterForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        draftPage = 1;
+        var applyBtn = document.getElementById('draftApplyBtn');
+        var applyIcon = document.getElementById('draftApplyIcon');
+        applyBtn.disabled = true;
+        applyIcon.className = 'bi bi-arrow-repeat me-1 spin-icon';
+        document.getElementById('draftsTable').style.opacity = '0.4';
+        loadDrafts().then(function () {
+            applyBtn.disabled = false;
+            applyIcon.className = 'bi bi-funnel-fill me-1';
+            document.getElementById('draftsTable').style.opacity = '1';
+        });
+    });
+
+    // ---- Reset Filters ----
+    document.getElementById('draftResetBtn').addEventListener('click', function () {
+        var resetBtn = this;
+        document.getElementById('draftFilterBU').value = '';
+        document.getElementById('draftFilterDefectClass').value = '';
+        document.getElementById('draftFilterDefectValue').value = '';
+        document.getElementById('draftFilterStation').value = '';
+        document.getElementById('draftFilterDateFrom').value = '';
+        document.getElementById('draftFilterDateTo').value = '';
+        document.getElementById('draftFilterSearch').value = '';
+        draftPage = 1;
+        sortBy = 'created_at';
+        sortDir = 'desc';
+        document.querySelectorAll('#draftsTable .sortable').forEach(function (h) { h.classList.remove('asc', 'desc'); });
+        var initCol = document.querySelector('#draftsTable .sortable[data-sort="created_at"]');
+        if (initCol) initCol.classList.add('desc');
+        resetBtn.disabled = true;
+        resetBtn.classList.add('btn-success');
+        resetBtn.classList.remove('btn-outline-secondary');
+        resetBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Reset';
+        document.getElementById('draftsTable').style.opacity = '0.4';
+        loadDrafts().then(function () {
+            document.getElementById('draftsTable').style.opacity = '1';
+            setTimeout(function () {
+                resetBtn.disabled = false;
+                resetBtn.classList.remove('btn-success');
+                resetBtn.classList.add('btn-outline-secondary');
+                resetBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset';
+            }, 600);
+        });
+    });
 
     // Initial load
     loadDrafts();
