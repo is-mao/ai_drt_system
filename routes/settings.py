@@ -86,9 +86,12 @@ def update_ai_settings():
 @settings_bp.route("/api/settings/ai/test", methods=["POST"])
 @login_required
 def test_ai():
-    api_key = _read_env_key()
+    data = request.get_json(silent=True) or {}
+    api_key = data.get("api_key", "").strip()
     if not api_key:
-        return jsonify({"success": False, "message": "No API key configured"})
+        api_key = _read_env_key()
+    if not api_key:
+        return jsonify({"success": False, "message": "No API key configured. Please enter a key first."})
 
     success, message = test_ai_connection(api_key)
     return jsonify({"success": success, "message": message})

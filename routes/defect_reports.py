@@ -10,6 +10,7 @@ defects_bp = Blueprint("defects", __name__, url_prefix="")
 
 DEFECT_CLASSES = Config.DEFECT_CLASSES
 DEFECT_VALUES = Config.DEFECT_VALUES
+DEFECT_CLASS_VALUE_MAP = Config.DEFECT_CLASS_VALUE_MAP
 BU_OPTIONS = Config.BU_OPTIONS
 
 
@@ -71,6 +72,13 @@ def defect_detail(id):
 # ---------------------------------------------------------------------------
 # API routes
 # ---------------------------------------------------------------------------
+
+
+@defects_bp.route("/api/defect-options")
+@login_required
+def defect_options():
+    """Return the class → value → definition mapping as JSON."""
+    return jsonify(DEFECT_CLASS_VALUE_MAP)
 
 
 @defects_bp.route("/api/defects", methods=["GET"])

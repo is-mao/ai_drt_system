@@ -122,7 +122,12 @@ document.addEventListener('DOMContentLoaded', function() {
         resultDiv.style.display = 'block';
         resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> Testing connection...';
 
-        fetch('/api/settings/ai/test', {method: 'POST'})
+        const inputKey = document.getElementById('apiKey').value.trim();
+        fetch('/api/settings/ai/test', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({api_key: inputKey})
+        })
         .then(r => r.json())
         .then(data => {
             if (data.success) {

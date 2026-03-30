@@ -31,23 +31,23 @@
             <table class="table table-hover data-table align-middle mb-0" id="draftsTable">
                 <thead>
                     <tr>
-                        <th class="px-2 text-center" style="width:40px;">
+                        <th class="text-center" style="width:2.5%;">
                             <input type="checkbox" class="form-check-input" id="selectAllDrafts" title="Select All">
                         </th>
-                        <th class="px-3" style="width:50px;">#</th>
-                        <th style="width:65px;">BU</th>
-                        <th style="width:70px;">WEEK#</th>
-                        <th>PCAP/N</th>
-                        <th>STATION</th>
-                        <th>SERVER</th>
-                        <th>SN</th>
-                        <th>RECORD TIME</th>
-                        <th>FAILURE</th>
-                        <th>DEFECT CLASS</th>
-                        <th>ROOT CAUSE</th>
-                        <th>ACTION</th>
-                        <th style="width:100px;">UPLOADED</th>
-                        <th class="text-center" style="min-width:150px;">ACTIONS</th>
+                        <th style="width:3%;">#</th>
+                        <th style="width:3.5%;">BU</th>
+                        <th style="width:4%;">WK#</th>
+                        <th style="width:7%;">PCAP/N</th>
+                        <th style="width:5%;">STATION</th>
+                        <th style="width:5%;">SERVER</th>
+                        <th style="width:8%;">SN</th>
+                        <th style="width:10%;">REC TIME</th>
+                        <th style="width:11%;">FAILURE</th>
+                        <th style="width:7%;">CLASS</th>
+                        <th style="width:10%;">ROOT CAUSE</th>
+                        <th style="width:9%;">ACTION</th>
+                        <th style="width:6%;">UPLOADED</th>
+                        <th class="text-center" style="width:9%;">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody id="draftsTableBody">
@@ -92,6 +92,18 @@
 
     let draftPage = 1;
     let draftPerPage = 25;
+
+    function updatePendingBadge() {
+        fetch('/api/draft-records?per_page=1&page=1')
+            .then(r => r.json())
+            .then(d => {
+                var badge = document.getElementById('navPendingBadge');
+                if (badge) {
+                    if (d.total > 0) { badge.textContent = d.total; badge.style.display = ''; }
+                    else { badge.style.display = 'none'; }
+                }
+            }).catch(function(){});
+    }
 
     async function loadDrafts() {
         const bu = document.getElementById('draftFilterBU').value;
@@ -200,6 +212,7 @@
                     await fetch('/api/draft-records/' + btn.dataset.id, { method: 'DELETE' });
                     showToast('Deleted', 'success');
                     loadDrafts();
+                    updatePendingBadge();
                 } catch (err) { showToast('Delete failed', 'danger'); }
             });
         });
@@ -258,6 +271,7 @@
             if (result.success) {
                 showToast('Deleted ' + result.deleted + ' record(s)', 'success');
                 loadDrafts();
+                updatePendingBadge();
             } else {
                 showToast(result.error || 'Delete failed', 'danger');
             }

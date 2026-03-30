@@ -10,19 +10,18 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <!-- Left Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-brand">
+    <!-- Top Navigation Bar -->
+    <nav class="top-navbar">
+        <div class="navbar-brand">
             <a href="/dashboard">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5M3 8.062C3 6.76 4.235 5.765 5.53 5.886a26.6 26.6 0 0 0 4.94 0C11.765 5.765 13 6.76 13 8.062v1.157a.93.93 0 0 1-.765.935c-.845.147-2.34.346-4.235.346s-3.39-.2-4.235-.346A.93.93 0 0 1 3 9.219zm4.542-.827a.25.25 0 0 0-.217.068l-.92.9a25 25 0 0 1-1.871-.183.25.25 0 0 0-.068.495c.55.076 1.232.149 2.02.193a.25.25 0 0 0 .189-.071l.754-.736.847 1.71a.25.25 0 0 0 .404.062l.932-.97a25 25 0 0 0 1.922-.188.25.25 0 0 0-.068-.495c-.538.074-1.207.145-1.98.189a.25.25 0 0 0-.166.076l-.754.785-.842-1.7a.25.25 0 0 0-.182-.135"/>
                     <path d="M8.5 1.866a1 1 0 1 0-1 0V3h-2A4.5 4.5 0 0 0 1 7.5V8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1v-.5A4.5 4.5 0 0 0 10.5 3h-2zM14 7.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.5A3.5 3.5 0 0 1 5.5 4h5A3.5 3.5 0 0 1 14 7.5"/>
                 </svg>
                 AI DRT System
             </a>
-            <small>Defect Report Tracking</small>
         </div>
-        <nav class="sidebar-nav">
+        <div class="navbar-links">
             <a class="nav-link" href="/dashboard">
                 <i class="bi bi-grid-1x2-fill"></i>
                 <span>Dashboard</span>
@@ -34,7 +33,7 @@
             <a class="nav-link position-relative" href="/pending" id="navPending">
                 <i class="bi bi-clock-history"></i>
                 <span>Pending</span>
-                <span class="badge rounded-pill bg-warning text-dark ms-auto" id="navPendingBadge" style="font-size:0.63rem; display:none;">0</span>
+                <span class="badge rounded-pill bg-warning text-dark" id="navPendingBadge" style="font-size:0.6rem; display:none; position:absolute; top:2px; right:-4px;">0</span>
             </a>
             <a class="nav-link" href="/import">
                 <i class="bi bi-cloud-arrow-up"></i>
@@ -44,17 +43,17 @@
                 <i class="bi bi-gear"></i>
                 <span>Settings</span>
             </a>
-        </nav>
-        <div class="sidebar-footer">
-            <div class="user-info">
-                <i class="bi bi-person-circle me-1"></i>
+        </div>
+        <div class="navbar-right">
+            <span class="navbar-user">
+                <i class="bi bi-person-circle"></i>
                 {{ session.get('username', '') }}
-            </div>
-            <button class="btn btn-outline-light btn-logout btn-sm" id="logoutBtn">
-                <i class="bi bi-box-arrow-right me-1"></i>Logout
+            </span>
+            <button class="btn btn-outline-light btn-sm navbar-logout" id="logoutBtn">
+                <i class="bi bi-box-arrow-right"></i> Logout
             </button>
         </div>
-    </aside>
+    </nav>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -158,7 +157,7 @@
         // Highlight active nav link
         (function () {
             const path = window.location.pathname;
-            document.querySelectorAll('.sidebar-nav .nav-link').forEach(function (link) {
+            document.querySelectorAll('.navbar-links .nav-link').forEach(function (link) {
                 if (link.getAttribute('href') === path) {
                     link.classList.add('active');
                 }
@@ -173,6 +172,59 @@
                         badge.style.display = '';
                     }
                 }).catch(() => {});
+        })();
+
+        // Column resize for data-table
+        (function () {
+            window._isResizing = false;
+            document.querySelectorAll('.data-table').forEach(function (table) {
+                var ths = table.querySelectorAll('thead th');
+                var thArr = Array.from(ths);
+                thArr.forEach(function (th, idx) {
+                    var handle = document.createElement('div');
+                    handle.className = 'col-resize-handle';
+                    th.appendChild(handle);
+
+                    var startX, startW, nextW, thEl, nextTh, didMove;
+
+                    handle.addEventListener('mousedown', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        thEl = th;
+                        nextTh = (idx < thArr.length - 1) ? thArr[idx + 1] : null;
+                        startX = e.pageX;
+                        startW = th.offsetWidth;
+                        nextW = nextTh ? nextTh.offsetWidth : 0;
+                        didMove = false;
+                        handle.classList.add('resizing');
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                    });
+
+                    function onMouseMove(e) {
+                        didMove = true;
+                        window._isResizing = true;
+                        var delta = e.pageX - startX;
+                        var newW = Math.max(30, startW + delta);
+                        thEl.style.width = newW + 'px';
+                        if (nextTh) {
+                            var newNextW = Math.max(30, nextW - delta);
+                            nextTh.style.width = newNextW + 'px';
+                        }
+                    }
+
+                    function onMouseUp() {
+                        handle.classList.remove('resizing');
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                        if (didMove) {
+                            setTimeout(function () { window._isResizing = false; }, 100);
+                        } else {
+                            window._isResizing = false;
+                        }
+                    }
+                });
+            });
         })();
     </script>
     {% block scripts %}{% endblock %}
