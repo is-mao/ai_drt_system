@@ -4,12 +4,14 @@ A Flask-based Defect Report Tracking system with AI-powered log analysis using G
 
 ## Features
 
-- **Defect Reports** — CRUD with sorting, filtering, pagination, Excel export/import
+- **Defect Reports** — CRUD with sorting, filtering (cascading Class→Value), column resize, pagination, Excel export/import
 - **Cesium Import** — Import raw test data from Cesium system as pending drafts
-- **AI Log Analysis** — Auto-classify defects using Gemini AI
+- **Pending Management** — Full filtering, sorting, batch operations on draft records
+- **AI Log Analysis** — Auto-classify defects using Gemini AI (4-tier fallback)
 - **AI Beautification** — Polish Root Cause & Action text with AI
 - **Dashboard** — KPIs, charts (defect class, weekly trend, top stations/servers/PCAP/failures)
-- **Multi-DB Support** — SQLite (zero-setup) or MySQL
+- **Multi-DB Support** — SQLite (zero-setup), MySQL, or PostgreSQL
+- **Top Navigation Bar** — Responsive layout with Dashboard, Defects, Pending, Import, Settings
 
 ## Quick Start
 

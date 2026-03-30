@@ -217,6 +217,85 @@ Action:
     return {"success": False, "error": "All API keys exhausted (quota). Please try again later."}
 
 
+def translate_root_cause_action(root_cause, action, target_lang):
+    """Use Gemini AI to translate Root Cause and Action text.
+
+    Args:
+        root_cause: Root Cause text to translate
+        action: Action text to translate
+        target_lang: Target language code ('zh' for Chinese, 'vi' for Vietnamese)
+
+    Returns: {'success': bool, 'root_cause': str, 'action': str, 'error': str|None}
+    """
+    api_keys = _get_api_keys()
+    if not api_keys:
+        return {"success": False, "error": "No API key configured. Set GEMINI_API_KEY in .env or Settings page."}
+
+    lang_names = {"zh": "Chinese (Simplified)", "vi": "Vietnamese"}
+    lang_name = lang_names.get(target_lang, target_lang)
+
+    prompt = f"""You are a professional translator for manufacturing defect reports.
+Translate the following Root Cause and Action text into {lang_name}.
+
+Rules:
+- Translate accurately, preserving all technical terms and meaning.
+- Keep technical abbreviations (e.g. DIMM, PCIe, BIOS, SN, FW) unchanged.
+- Keep numbered action steps as numbered list.
+- Plain text ONLY. No markdown, no bold, no asterisks.
+- If the original text is empty, return empty.
+
+Original Root Cause:
+{root_cause}
+
+Original Action:
+{action}
+
+Format your response EXACTLY as:
+Root Cause: [translated text]
+Action:
+1. [translated step]
+2. [translated step]
+..."""
+
+    for api_key in api_keys:
+        try:
+            try:
+                from google import genai
+
+                client = genai.Client(api_key=api_key)
+                for model_name in GEMINI_MODELS:
+                    try:
+                        response = client.models.generate_content(model=model_name, contents=prompt)
+                        result_text = response.text
+                        new_rc, new_action = _parse_ai_response(result_text)
+                        return {
+                            "success": True,
+                            "root_cause": new_rc or root_cause,
+                            "action": new_action or action,
+                        }
+                    except Exception as e:
+                        err_str = str(e).lower()
+                        if "quota" in err_str or "429" in err_str:
+                            continue
+                        raise
+            except ImportError:
+                result_text = _call_gemini_legacy(api_key, prompt, "", "", "", "", "")
+                if result_text:
+                    new_rc, new_action = _parse_ai_response(result_text)
+                    return {
+                        "success": True,
+                        "root_cause": new_rc or root_cause,
+                        "action": new_action or action,
+                    }
+        except Exception as e:
+            err_str = str(e).lower()
+            if "quota" in err_str or "429" in err_str:
+                continue
+            return {"success": False, "error": str(e)}
+
+    return {"success": False, "error": "All API keys exhausted (quota). Please try again later."}
+
+
 def _build_prompt(bu, station, failure, defect_class, log_content, keywords=""):
     """Build the shared AI analysis prompt."""
     keywords_section = ""

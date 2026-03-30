@@ -123,7 +123,7 @@ def weekly_trend():
         for rec_time, rec_bu in all_records:
             if rec_time is None or rec_bu is None:
                 continue
-            rec_date = rec_time.date() if hasattr(rec_time, 'date') else rec_time
+            rec_date = rec_time.date() if hasattr(rec_time, "date") else rec_time
             day_of_year = rec_date.timetuple().tm_yday
             w_num = (day_of_year - 1) // 7 + 1
             if 1 <= w_num <= show_weeks:

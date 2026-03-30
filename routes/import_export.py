@@ -729,8 +729,18 @@ def api_draft_records():
 
     # Sorting
     allowed_sort = {
-        "id", "bu", "week_number", "pcap_n", "station", "server",
-        "sn", "record_time", "failure", "defect_class", "defect_value", "created_at",
+        "id",
+        "bu",
+        "week_number",
+        "pcap_n",
+        "station",
+        "server",
+        "sn",
+        "record_time",
+        "failure",
+        "defect_class",
+        "defect_value",
+        "created_at",
     }
     if sort_by not in allowed_sort:
         sort_by = "created_at"

@@ -175,8 +175,8 @@
                 </div>
 
                 <!-- AI Diagnosis Section -->
-                <div class="col-12">
-                    <div class="card ai-section">
+                <div class="col-md-6">
+                    <div class="card ai-section h-100">
                         <div class="card-body">
                             <h6 class="card-title mb-3">
                                 <i class="bi bi-robot me-1"></i>
@@ -229,18 +229,23 @@
                 </div>
 
                 <!-- Same History Query Section -->
-                <div class="col-12">
-                    <div class="card history-section">
+                <div class="col-md-6">
+                    <div class="card history-section h-100">
                         <div class="card-body">
                             <h6 class="card-title mb-3">
                                 <i class="bi bi-clock-history me-1"></i>
                                 Same History Query (Root Cause & Action)
                             </h6>
                             <p class="text-muted small mb-2">Query latest 3 records with same BU and Failure. Select one to apply.</p>
-                            <button type="button" id="historyQueryBtn" class="btn btn-sm btn-outline-primary">
-                                <span id="historySpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
-                                Query History
-                            </button>
+                            <div class="d-flex gap-2 align-items-center">
+                                <button type="button" id="historyQueryBtn" class="btn btn-sm btn-outline-primary">
+                                    <span id="historySpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                    Query History
+                                </button>
+                                <button type="button" id="historyClearBtn" class="btn btn-sm btn-outline-secondary d-none">
+                                    <i class="bi bi-x-lg me-1"></i>Clear
+                                </button>
+                            </div>
 
                             <!-- History Results -->
                             <div id="historyResultBox" class="mt-2 d-none">
@@ -251,36 +256,106 @@
                     </div>
                 </div>
 
-                <!-- Root Cause (editable, AI-fillable) -->
-                <div class="col-md-6">
-                    <label for="fieldRootCause" class="form-label">Root Cause</label>
-                    <textarea id="fieldRootCause" name="root_cause" class="form-control" rows="6"
-                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
-                </div>
-
-                <!-- Action (editable, AI-fillable) -->
-                <div class="col-md-6">
-                    <label for="fieldAction" class="form-label">Action</label>
-                    <textarea id="fieldAction" name="action" class="form-control" rows="6"
-                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
-                </div>
-
                 <!-- AI Beautification Section -->
-                <div class="col-12">
-                    <div class="card" style="border-left: 4px solid var(--purple); background: var(--purple-light);">
-                        <div class="card-body py-3">
-                            <h6 class="card-title mb-2">
-                                <i class="bi bi-stars me-1" style="color: var(--purple);"></i>
+                <div class="col-md-6">
+                    <div class="card beautify-section h-100">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="bi bi-stars me-1"></i>
                                 AI Beautification (Root Cause &amp; Action)
                             </h6>
                             <p class="text-muted small mb-2">Improve the grammar, clarity, and readability of Root Cause &amp; Action using AI. Review changes before applying.</p>
-                            <button type="button" id="aiBeautifyBtn" class="btn btn-sm" style="background: var(--purple); color: #fff; border: none;">
+                            <button type="button" id="aiBeautifyBtn" class="btn btn-sm btn-ai">
                                 <span id="beautifySpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
                                 <i class="bi bi-magic me-1"></i>Beautify with AI
                             </button>
+                        </div>
+                    </div>
+                </div>
 
-                            <!-- Beautify Result: Before/After comparison -->
-                            <div id="beautifyResultBox" class="mt-3 d-none">
+                <!-- AI Translation Section -->
+                <div class="col-md-6">
+                    <div class="card translate-section h-100">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="bi bi-translate me-1"></i>
+                                Translate Root Cause &amp; Action
+                            </h6>
+                            <p class="text-muted small mb-2">Translate Root Cause &amp; Action into another language using AI. Original text will not be changed.</p>
+                            <div class="d-flex gap-2 align-items-center">
+                                <button type="button" class="btn btn-sm translate-lang-btn" data-lang="zh" style="background: #0288d1; color: #fff; border: none;">
+                                    <span class="translate-spinner spinner-border spinner-border-sm d-none" role="status"></span>
+                                    <i class="bi bi-translate me-1"></i>中文 (Chinese)
+                                </button>
+                                <button type="button" class="btn btn-sm translate-lang-btn" data-lang="vi" style="background: #00796b; color: #fff; border: none;">
+                                    <span class="translate-spinner spinner-border spinner-border-sm d-none" role="status"></span>
+                                    <i class="bi bi-translate me-1"></i>Tiếng Việt (Vietnamese)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Translate Result (full width, shown when translate is triggered) -->
+                <div class="col-12">
+                    <div id="translateResultBox" class="d-none">
+                        <div class="card" style="border-left: 4px solid #0288d1; background: #e1f5fe;">
+                            <div class="card-body py-3">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-header py-2 bg-light">
+                                                <span class="badge bg-secondary me-1">Original</span> Root Cause
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="translateRcOriginal"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100" style="border-color: #0288d1;">
+                                            <div class="card-header py-2" style="background: #e1f5fe;">
+                                                <span class="badge me-1" style="background: #0288d1;" id="translateRcLangBadge">Translated</span> Root Cause
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="translateRcResult"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-header py-2 bg-light">
+                                                <span class="badge bg-secondary me-1">Original</span> Action
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="translateActionOriginal"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100" style="border-color: #0288d1;">
+                                            <div class="card-header py-2" style="background: #e1f5fe;">
+                                                <span class="badge me-1" style="background: #0288d1;" id="translateActionLangBadge">Translated</span> Action
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="translateActionResult"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex gap-2">
+                                    <button type="button" id="translateCopyRcBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-clipboard me-1"></i>Copy Root Cause</button>
+                                    <button type="button" id="translateCopyActionBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-clipboard me-1"></i>Copy Action</button>
+                                    <button type="button" id="translateCopyBothBtn" class="btn btn-primary btn-sm"><i class="bi bi-clipboard-check me-1"></i>Copy Both</button>
+                                    <button type="button" id="translateCloseBtn" class="btn btn-outline-secondary btn-sm">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Translate Error -->
+                    <div id="translateErrorBox" class="alert alert-warning mt-2 d-none mb-0">
+                        <span id="translateErrorText"></span>
+                    </div>
+                </div>
+
+                <!-- Beautify Result (full width, shown when beautify is triggered) -->
+                <div class="col-12">
+                    <div id="beautifyResultBox" class="d-none">
+                        <div class="card" style="border-left: 4px solid var(--purple); background: var(--purple-light);">
+                            <div class="card-body py-3">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <div class="card h-100">
@@ -322,13 +397,27 @@
                                     <button type="button" id="beautifyDiscardBtn" class="btn btn-outline-secondary btn-sm">Discard</button>
                                 </div>
                             </div>
-
-                            <!-- Beautify Error -->
-                            <div id="beautifyErrorBox" class="alert alert-warning mt-2 d-none mb-0">
-                                <span id="beautifyErrorText"></span>
-                            </div>
                         </div>
                     </div>
+
+                    <!-- Beautify Error -->
+                    <div id="beautifyErrorBox" class="alert alert-warning mt-2 d-none mb-0">
+                        <span id="beautifyErrorText"></span>
+                    </div>
+                </div>
+
+                <!-- Root Cause (editable, AI-fillable) -->
+                <div class="col-md-6">
+                    <label for="fieldRootCause" class="form-label">Root Cause</label>
+                    <textarea id="fieldRootCause" name="root_cause" class="form-control" rows="6"
+                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
+                </div>
+
+                <!-- Action (editable, AI-fillable) -->
+                <div class="col-md-6">
+                    <label for="fieldAction" class="form-label">Action</label>
+                    <textarea id="fieldAction" name="action" class="form-control" rows="6"
+                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
                 </div>
             </div>
 
@@ -923,6 +1012,7 @@
             const json = await resp.json();
 
             resultBox.classList.remove('d-none');
+            document.getElementById('historyClearBtn').classList.remove('d-none');
 
             if (json.success && json.results && json.results.length > 0) {
                 json.results.forEach(function (r, i) {
@@ -986,6 +1076,14 @@
             btn.disabled = false;
             spinner.classList.add('d-none');
         }
+    });
+
+    // ---- History Clear Button ----
+    document.getElementById('historyClearBtn').addEventListener('click', function () {
+        document.getElementById('historyResultBox').classList.add('d-none');
+        document.getElementById('historyNoResult').classList.add('d-none');
+        document.getElementById('historyCards').innerHTML = '';
+        this.classList.add('d-none');
     });
 
     // ---- AI Beautification ----
@@ -1056,6 +1154,87 @@
 
     document.getElementById('beautifyDiscardBtn').addEventListener('click', function () {
         document.getElementById('beautifyResultBox').classList.add('d-none');
+    });
+
+    // ---- AI Translation ----
+    var translateRcText = '', translateActionText = '';
+    var langLabels = { zh: '中文', vi: 'Tiếng Việt' };
+
+    document.querySelectorAll('.translate-lang-btn').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            var rootCause = document.getElementById('fieldRootCause').value.trim();
+            var action = document.getElementById('fieldAction').value.trim();
+            var lang = this.dataset.lang;
+
+            if (!rootCause && !action) {
+                appAlert('Please fill in Root Cause or Action first before translating.', 'Validation');
+                return;
+            }
+
+            var spinner = this.querySelector('.translate-spinner');
+            var resultBox = document.getElementById('translateResultBox');
+            var errorBox = document.getElementById('translateErrorBox');
+
+            // Disable all translate buttons
+            document.querySelectorAll('.translate-lang-btn').forEach(function (b) { b.disabled = true; });
+            spinner.classList.remove('d-none');
+            resultBox.classList.add('d-none');
+            errorBox.classList.add('d-none');
+
+            try {
+                var resp = await fetch('/api/ai/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ root_cause: rootCause, action: action, target_lang: lang }),
+                });
+                var json = await resp.json();
+
+                if (json.success) {
+                    translateRcText = json.root_cause || '';
+                    translateActionText = json.action || '';
+
+                    document.getElementById('translateRcOriginal').textContent = rootCause || '(empty)';
+                    document.getElementById('translateRcResult').textContent = translateRcText;
+                    document.getElementById('translateActionOriginal').textContent = action || '(empty)';
+                    document.getElementById('translateActionResult').textContent = translateActionText;
+                    document.getElementById('translateRcLangBadge').textContent = langLabels[lang] || lang;
+                    document.getElementById('translateActionLangBadge').textContent = langLabels[lang] || lang;
+                    resultBox.classList.remove('d-none');
+                } else {
+                    document.getElementById('translateErrorText').textContent = json.error || 'Translation failed.';
+                    errorBox.classList.remove('d-none');
+                }
+            } catch (err) {
+                document.getElementById('translateErrorText').textContent = 'Request failed: ' + (err.message || 'Network error');
+                errorBox.classList.remove('d-none');
+            } finally {
+                document.querySelectorAll('.translate-lang-btn').forEach(function (b) { b.disabled = false; });
+                spinner.classList.add('d-none');
+            }
+        });
+    });
+
+    document.getElementById('translateCopyRcBtn').addEventListener('click', function () {
+        navigator.clipboard.writeText(translateRcText).then(function () {
+            showToast('Root Cause copied to clipboard', 'success');
+        });
+    });
+
+    document.getElementById('translateCopyActionBtn').addEventListener('click', function () {
+        navigator.clipboard.writeText(translateActionText).then(function () {
+            showToast('Action copied to clipboard', 'success');
+        });
+    });
+
+    document.getElementById('translateCopyBothBtn').addEventListener('click', function () {
+        var text = 'Root Cause:\n' + translateRcText + '\n\nAction:\n' + translateActionText;
+        navigator.clipboard.writeText(text).then(function () {
+            showToast('Both copied to clipboard', 'success');
+        });
+    });
+
+    document.getElementById('translateCloseBtn').addEventListener('click', function () {
+        document.getElementById('translateResultBox').classList.add('d-none');
     });
 
 })();

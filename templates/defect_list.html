@@ -230,14 +230,14 @@
             var isRecent = false;
             if (r.updated_at) {
                 var updMs = new Date(r.updated_at.replace(' ','T')).getTime();
-                if (!isNaN(updMs)) isRecent = (Date.now() - updMs) < 86400000; // 24 hours
+                if (!isNaN(updMs)) isRecent = (Date.now() - updMs) < 14400000; // 4 hours
             }
             var classes = [];
             if (isHighlight) classes.push('row-highlight');
             if (isRecent) classes.push('row-recent');
             var trClass = classes.join(' ');
             html += '<tr' + (trClass ? ' class="' + trClass + '"' : '') + ' data-id="' + r.id + '">' +
-                '<td class="text-muted">' + r.id + '</td>' +
+                '<td class="text-muted' + (isRecent ? ' td-recent-id' : '') + '">' + r.id + '</td>' +
                 '<td><span class="badge" style="background-color:#283593; font-size:0.65rem;">' + escapeHtml(r.bu) + '</span></td>' +
                 '<td><span class="badge bg-light text-dark border" style="font-size:0.65rem;">' + escapeHtml(r.week_number) + '</span></td>' +
                 '<td title="' + escapeHtml(r.pcap_n) + '">' + escapeHtml(r.pcap_n) + '</td>' +

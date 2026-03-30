@@ -638,6 +638,28 @@ textarea.log-textarea {
     font-weight: 700;
 }
 
+.beautify-section {
+    background: linear-gradient(135deg, #f3e8ff 0%, #ede7f6 100%);
+    border: 1px solid #d1c4e9;
+    border-radius: var(--radius-md);
+}
+
+.beautify-section .card-title {
+    color: var(--purple);
+    font-weight: 700;
+}
+
+.translate-section {
+    background: linear-gradient(135deg, var(--accent-light) 0%, #e1f5fe 100%);
+    border: 1px solid #b3e5fc;
+    border-radius: var(--radius-md);
+}
+
+.translate-section .card-title {
+    color: var(--accent);
+    font-weight: 700;
+}
+
 /* ---- Detail Info Table ---- */
 .info-table {
     border-collapse: separate;
@@ -775,6 +797,16 @@ tr.row-highlight {
 
 tr.row-highlight td {
     font-weight: 600;
+}
+
+tr.row-recent {
+    background-color: #e8f5e9;
+}
+
+td.td-recent-id {
+    border-left: 4px solid #43a047 !important;
+    font-weight: 700;
+    color: #2e7d32 !important;
 }
 
 /* Spin animation for loading icons */
