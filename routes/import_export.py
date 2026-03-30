@@ -3,7 +3,7 @@ from models import db
 from models.defect_report import DefectReport
 from flask import Blueprint, request, jsonify, render_template, send_file
 from routes.auth import login_required
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -155,8 +155,6 @@ def import_excel():
                     # Try as Excel serial number first (raw XML fallback returns numbers as strings)
                     try:
                         serial = float(record_time)
-                        from datetime import timedelta
-
                         excel_epoch = datetime(1899, 12, 30)
                         record_time = excel_epoch + timedelta(days=serial)
                     except (ValueError, TypeError):
@@ -304,7 +302,7 @@ def export_excel():
         except ValueError:
             pass
 
-    records = query.order_by(DefectReport.record_time.desc()).all()
+    records = query.order_by(DefectReport.record_time.desc()).limit(50000).all()
 
     include_log = request.args.get("exclude_log") != "1"
     columns = EXPORT_COLUMNS + LOG_COLUMNS if include_log else EXPORT_COLUMNS
@@ -595,8 +593,6 @@ def import_cesium():
                     # Try as Excel serial number first (raw XML returns numbers as strings)
                     try:
                         serial = float(record_time)
-                        from datetime import timedelta
-
                         excel_epoch = datetime(1899, 12, 30)
                         record_time = excel_epoch + timedelta(days=serial)
                     except (ValueError, TypeError):
@@ -754,6 +750,20 @@ def api_draft_complete(id):
                 continue
 
     record.status = "complete"
+
+    # Validate required fields before completing
+    missing = []
+    if not record.bu:
+        missing.append("BU")
+    if not record.sn:
+        missing.append("SN")
+    if not record.station:
+        missing.append("Station")
+    if not record.failure:
+        missing.append("Failure")
+    if missing:
+        return jsonify({"success": False, "error": f"Missing required fields: {', '.join(missing)}"}), 400
+
     db.session.commit()
 
     return jsonify({"success": True, "data": record.to_dict(include_log=True)})
@@ -764,6 +774,8 @@ def api_draft_complete(id):
 def api_draft_delete(id):
     """Delete a draft record."""
     record = DefectReport.query.get_or_404(id)
+    if record.status != "draft":
+        return jsonify({"success": False, "error": "Record is not a draft"}), 400
     db.session.delete(record)
     db.session.commit()
     return jsonify({"success": True})

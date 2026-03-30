@@ -932,7 +932,7 @@
                         '<div class="card-body py-2 px-3">' +
                             '<div class="d-flex justify-content-between align-items-start mb-1">' +
                                 '<span class="badge bg-secondary me-2">#' + (i + 1) + '</span>' +
-                                '<small class="text-muted">ID: ' + r.id + ' | ' + r.record_time + ' | SN: ' + (r.sn || 'N/A') + ' | Station: ' + (r.station || 'N/A') + '</small>' +
+                                '<small class="text-muted">ID: ' + escapeHtml(String(r.id)) + ' | ' + escapeHtml(r.record_time || '') + ' | SN: ' + escapeHtml(r.sn || 'N/A') + ' | Station: ' + escapeHtml(r.station || 'N/A') + '</small>' +
                             '</div>' +
                             '<div class="row g-2">' +
                                 '<div class="col-md-6">' +
@@ -1058,12 +1058,6 @@
         document.getElementById('beautifyResultBox').classList.add('d-none');
     });
 
-    // HTML escape helper
-    function escapeHtml(text) {
-        var div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 })();
 </script>
 {% endblock %}

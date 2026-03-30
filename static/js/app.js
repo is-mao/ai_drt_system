@@ -1,5 +1,13 @@
 // DRT System - Common Utilities
 
+// Shared HTML escape utility
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Show Bootstrap toast notification
 function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
@@ -13,17 +21,15 @@ function showToast(message, type = 'info') {
     }[type] || 'bg-primary';
 
     const id = 'toast-' + Date.now();
-    const html = `
-        <div id="${id}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
-            <div class="d-flex">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', html);
+    const toastEl = document.createElement('div');
+    toastEl.id = id;
+    toastEl.className = 'toast align-items-center text-white ' + bgClass + ' border-0';
+    toastEl.setAttribute('role', 'alert');
+    toastEl.innerHTML = '<div class="d-flex"><div class="toast-body"></div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    toastEl.querySelector('.toast-body').textContent = message;
+    container.appendChild(toastEl);
 
-    const toastEl = document.getElementById(id);
     const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
     toast.show();
 

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, session
 from routes.auth import login_required
 from models.system_config import SystemConfig
 from services.ai_service import test_ai_connection
@@ -73,6 +73,8 @@ def get_ai_settings():
 @settings_bp.route("/api/settings/ai", methods=["PUT"])
 @login_required
 def update_ai_settings():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400

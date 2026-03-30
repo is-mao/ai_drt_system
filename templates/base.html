@@ -108,7 +108,7 @@
                 document.getElementById('appConfirmMessage').textContent = message || 'Are you sure?';
                 document.getElementById('appConfirmOk').classList.remove('d-none');
                 document.getElementById('appConfirmOk').className = 'btn btn-sm btn-danger px-4';
-                var bsModal = new bootstrap.Modal(modal);
+                var bsModal = bootstrap.Modal.getOrCreateInstance(modal);
                 var okBtn = document.getElementById('appConfirmOk');
                 function onOk() { cleanup(); bsModal.hide(); resolve(true); }
                 function onHidden() { cleanup(); resolve(false); }
@@ -134,7 +134,7 @@
                 document.getElementById('appConfirmTitle').textContent = title || 'Notice';
                 document.getElementById('appConfirmMessage').textContent = message || '';
                 document.getElementById('appConfirmOk').classList.add('d-none');
-                var bsModal = new bootstrap.Modal(modal);
+                var bsModal = bootstrap.Modal.getOrCreateInstance(modal);
                 function onHidden() { modal.removeEventListener('hidden.bs.modal', onHidden); resolve(); }
                 modal.addEventListener('hidden.bs.modal', onHidden);
                 bsModal.show();
@@ -187,9 +187,10 @@
 
                     var startX, startW, nextW, thEl, nextTh, didMove;
 
-                    handle.addEventListener('mousedown', function (e) {
+                    handle.addEventListener('pointerdown', function (e) {
                         e.preventDefault();
                         e.stopPropagation();
+                        handle.setPointerCapture(e.pointerId);
                         thEl = th;
                         nextTh = (idx < thArr.length - 1) ? thArr[idx + 1] : null;
                         startX = e.pageX;
@@ -197,11 +198,12 @@
                         nextW = nextTh ? nextTh.offsetWidth : 0;
                         didMove = false;
                         handle.classList.add('resizing');
-                        document.addEventListener('mousemove', onMouseMove);
-                        document.addEventListener('mouseup', onMouseUp);
+                        handle.addEventListener('pointermove', onPointerMove);
+                        handle.addEventListener('pointerup', onPointerUp);
+                        handle.addEventListener('lostpointercapture', onPointerUp);
                     });
 
-                    function onMouseMove(e) {
+                    function onPointerMove(e) {
                         didMove = true;
                         window._isResizing = true;
                         var delta = e.pageX - startX;
@@ -213,10 +215,11 @@
                         }
                     }
 
-                    function onMouseUp() {
+                    function onPointerUp() {
                         handle.classList.remove('resizing');
-                        document.removeEventListener('mousemove', onMouseMove);
-                        document.removeEventListener('mouseup', onMouseUp);
+                        handle.removeEventListener('pointermove', onPointerMove);
+                        handle.removeEventListener('pointerup', onPointerUp);
+                        handle.removeEventListener('lostpointercapture', onPointerUp);
                         if (didMove) {
                             setTimeout(function () { window._isResizing = false; }, 100);
                         } else {

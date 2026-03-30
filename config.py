@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -40,7 +41,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Session
-    PERMANENT_SESSION_LIFETIME = 28800  # 8 hours
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
 
     # Defect class options
     DEFECT_CLASSES = ["CND", "Equipment", "HARDWARE", "INTERCONNECT", "NPF", "OPERATOR_PROCESS", "ORDER", "R&R", "SOFTWARE", "TBD", "TEST"]
