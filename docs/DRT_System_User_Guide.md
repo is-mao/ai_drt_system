@@ -98,14 +98,13 @@ python app.py
 
 ### 3.1 记录列表
 
-点击左侧菜单 **「Defect Reports」** 进入列表页。
+点击顶部导航栏 **「Defects」** 进入列表页。
 
-**筛选条件**：BU、Defect Class、Defect Value、Station、日期范围、关键字搜索（支持 SN、Failure、PN 等字段模糊匹配）
+**筛选条件**：BU、Defect Class、Defect Value（级联联动）、Station、日期范围、关键字搜索（支持 SN、Failure、PN 等字段模糊匹配）
 
 **功能操作**：
-- 点击表头可排序（支持升序/降序切换）
+- 点击表头可排序（支持升序/降序切换），支持列宽拖拽调整
 - 默认按 **Updated（更新时间）** 降序排列，最新修改的记录在最上面
-- 24 小时内更新的记录以**浅绿色背景 + 绿色左边框**高亮显示
 - 保存记录后自动跳转到列表页，对应行以**黄色闪烁**高亮标记
 - 每页显示 10 / 25 / 50 / 100 条可选
 - **New Record** — 新建记录
@@ -121,15 +120,15 @@ python app.py
 
 | 字段 | 说明 |
 |------|------|
-| BU | 下拉选择：CRBU / WNBU / SRGBU / UABU / CSPBU |
+| BU | 下拉选择：CRBU / WNBU / SRGBU / UABU / CSPBU / IOTBU |
 | Week# | 自动计算（如 26WK13），可手动修改 |
 | PCAP/N | UUT Type / PCAP 编号 |
 | Station | 工站名称 |
 | Server | 服务器名称 |
 | SN | 产品序列号 |
 | Failure | 故障描述 |
-| Defect Class | 下拉选择（9 个选项） |
-| Defect Value | 下拉选择（22 个选项） |
+| Defect Class | 下拉选择（11 个选项） |
+| Defect Value | 级联下拉（根据 Defect Class 自动过滤可选值，附带 Definition 提示） |
 
 **可选字段**：Record Time、PN、Component SN、Root Cause、Action
 
@@ -185,7 +184,7 @@ python app.py
 
 ## 4. Import（数据导入）
 
-点击左侧菜单 **「Import」** 进入导入页面，支持两种导入方式：
+点击顶部导航栏 **「Import」** 进入导入页面，支持两种导入方式：
 
 ### 4.1 Excel 标准导入
 
@@ -233,14 +232,17 @@ python app.py
 
 ## 5. Pending（待处理记录）
 
-点击左侧菜单 **「Pending」** 查看通过 Cesium 导入的草稿记录。
+点击顶部导航栏 **「Pending」** 查看通过 Cesium 导入的草稿记录。
+
+**筛选条件**：BU、Defect Class、Defect Value（级联联动）、Station、日期范围、关键字搜索（与 Defect Reports 页面一致）
 
 **功能**：
+- 点击表头可排序（支持升序/降序切换）
 - **Uploaded 列** — 显示每条记录的上传时间
-- **BU 筛选** — 按事业部过滤记录
 - **Refresh** — 刷新列表（带旋转动画视觉反馈）
+- **Apply / Reset** — 应用或重置筛选条件
 - **Edit** — 编辑记录，补充必填字段后保存即可转为正式记录
-- **Delete** — 删除单条草稿
+- **Delete** — 删除单条草稿（仅限草稿状态）
 - **Batch Delete** — 批量删除选中的草稿
 
 ---
@@ -259,35 +261,39 @@ python app.py
 
 ## 7. Settings（系统设置）
 
-点击左侧菜单 **「Settings」** 进入设置页面。
+点击顶部导航栏 **「Settings」** 进入设置页面。
 
 ### AI Configuration
 
 - 查看当前 API Key 状态（显示脱敏后的 Key）
-- 更新 Gemini API Key
+- 更新 Gemini API Key（**仅 admin 角色可操作**）
 - 测试 API 连接是否正常
 
 ---
 
 ## 8. 字段说明速查
 
-### Defect Class（9 类）
+### Defect Class（11 类）
 
 | 值 | 说明 |
 |---|------|
 | CND | Could Not Duplicate |
 | Equipment | 设备问题 |
-| Hardware | 硬件故障 |
+| HARDWARE | 硬件故障 |
+| INTERCONNECT | 互连问题 |
 | NPF | No Problem Found |
 | OPERATOR_PROCESS | 操作/流程问题 |
 | ORDER | 订单问题 |
 | R&R | 返修 |
+| SOFTWARE | 软件问题 |
 | TBD | 待确认 |
 | TEST | 测试问题 |
 
-### BU（5 个事业部）
+> 每个 Defect Class 下对应若干 Defect Value，选择 Class 后会级联显示对应的 Value 选项及 Definition 说明。部分 Class（如 CND、Equipment、NPF 等）无预定义 Value，支持自由输入。
 
-CRBU、WNBU、SRGBU、UABU、CSPBU
+### BU（6 个事业部）
+
+CRBU、WNBU、SRGBU、UABU、CSPBU、IOTBU
 
 ### Week# 格式
 

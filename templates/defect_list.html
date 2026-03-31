@@ -55,9 +55,6 @@
                 <label class="form-label mb-0">Defect Value</label>
                 <select id="filterDefectValue" class="form-select form-select-sm" style="width:200px;">
                     <option value="">All</option>
-                    {% for dv in defect_values %}
-                    <option value="{{ dv }}">{{ dv }}</option>
-                    {% endfor %}
                 </select>
             </div>
             <div class="col-auto">
@@ -90,20 +87,20 @@
         <table class="table table-hover data-table align-middle mb-0" id="defectTable">
             <thead>
                 <tr>
-                    <th class="sortable px-3" data-sort="id" style="width:50px;"># <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="bu" style="width:65px;">BU <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="week_number" style="width:70px;">WEEK# <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="pcap_n">PCAP/N <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="station">STATION <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="server">SERVER <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="sn">SN <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="record_time">RECORD TIME <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="failure">FAILURE <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="defect_class">DEFECT CLASS <span class="sort-arrow"></span></th>
-                    <th>ROOT CAUSE</th>
-                    <th>ACTION</th>
-                    <th class="sortable" data-sort="updated_at" style="width:100px;">UPDATED <span class="sort-arrow"></span></th>
-                    <th class="text-center" style="min-width:170px;">ACTIONS</th>
+                    <th class="sortable" data-sort="id" style="width:3%;"># <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="bu" style="width:3.5%;">BU <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="week_number" style="width:4%;">WK# <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="pcap_n" style="width:7%;">PCAP/N <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="station" style="width:5.5%;">STATION <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="server" style="width:5.5%;">SERVER <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="sn" style="width:8%;">SN <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="record_time" style="width:10%;">REC TIME <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="failure" style="width:11%;">FAILURE <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="defect_class" style="width:7%;">CLASS <span class="sort-arrow"></span></th>
+                    <th style="width:10%;">ROOT CAUSE</th>
+                    <th style="width:9%;">ACTION</th>
+                    <th class="sortable" data-sort="updated_at" style="width:6%;">UPDATED <span class="sort-arrow"></span></th>
+                    <th class="text-center" style="width:10.5%;">ACTIONS</th>
                 </tr>
             </thead>
             <tbody id="defectTableBody">
@@ -172,14 +169,14 @@
         if (dt) params.set('date_to', dt);
         if (se) params.set('search', se);
 
-        tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-muted">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="14" class="text-center py-4 text-muted">Loading...</td></tr>';
 
         try {
             const resp = await fetch('/api/defects?' + params.toString());
             const json = await resp.json();
 
             if (!json.data || json.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-muted">No records found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="14" class="text-center py-4 text-muted">No records found.</td></tr>';
                 totalCount.textContent = '0 records';
                 renderPagination(0, 1);
                 return;
@@ -189,7 +186,7 @@
             renderTable(json.data);
             renderPagination(json.total_pages, json.page);
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-danger">Error loading data.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="14" class="text-center py-4 text-danger">Error loading data.</td></tr>';
             console.error(err);
         }
     }
@@ -197,13 +194,6 @@
     function truncate(str, max) {
         if (!str) return '';
         return str.length > max ? str.substring(0, max) + '...' : str;
-    }
-
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 
     // Defect class color map
@@ -240,27 +230,30 @@
             var isRecent = false;
             if (r.updated_at) {
                 var updMs = new Date(r.updated_at.replace(' ','T')).getTime();
-                if (!isNaN(updMs)) isRecent = (Date.now() - updMs) < 86400000; // 24 hours
+                if (!isNaN(updMs)) isRecent = (Date.now() - updMs) < 14400000; // 4 hours
             }
-            var trClass = isHighlight ? 'row-highlight' : (isRecent ? 'row-recent' : '');
+            var classes = [];
+            if (isHighlight) classes.push('row-highlight');
+            if (isRecent) classes.push('row-recent');
+            var trClass = classes.join(' ');
             html += '<tr' + (trClass ? ' class="' + trClass + '"' : '') + ' data-id="' + r.id + '">' +
-                '<td class="px-3 text-muted">' + r.id + '</td>' +
-                '<td><span class="badge" style="background-color:#283593;">' + escapeHtml(r.bu) + '</span></td>' +
-                '<td><span class="badge bg-light text-dark border">' + escapeHtml(r.week_number) + '</span></td>' +
-                '<td>' + escapeHtml(r.pcap_n) + '</td>' +
+                '<td class="text-muted' + (isRecent ? ' td-recent-id' : '') + '">' + r.id + '</td>' +
+                '<td><span class="badge" style="background-color:#283593; font-size:0.65rem;">' + escapeHtml(r.bu) + '</span></td>' +
+                '<td><span class="badge bg-light text-dark border" style="font-size:0.65rem;">' + escapeHtml(r.week_number) + '</span></td>' +
+                '<td title="' + escapeHtml(r.pcap_n) + '">' + escapeHtml(r.pcap_n) + '</td>' +
                 '<td>' + escapeHtml(r.station) + '</td>' +
                 '<td>' + escapeHtml(r.server) + '</td>' +
-                '<td style="font-family:Consolas,monospace; font-weight:500;">' + escapeHtml(r.sn) + '</td>' +
-                '<td style="white-space:nowrap; color:#616161;">' + escapeHtml(r.record_time) + '</td>' +
-                '<td title="' + escapeHtml(r.failure) + '" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(r.failure) + '</td>' +
+                '<td style="font-family:Consolas,monospace;">' + escapeHtml(r.sn) + '</td>' +
+                '<td style="color:#616161;">' + escapeHtml(r.record_time) + '</td>' +
+                '<td title="' + escapeHtml(r.failure) + '">' + escapeHtml(r.failure) + '</td>' +
                 '<td>' + dcBadge(r.defect_class) + '</td>' +
-                '<td style="color:#455a64;">' + textOrNotSet(r.root_cause, 40) + '</td>' +
-                '<td style="color:#455a64;">' + textOrNotSet(r.action, 40) + '</td>' +
-                '<td style="white-space:nowrap; font-size:0.82rem; color:#757575;">' + (r.updated_at ? r.updated_at.replace('T',' ').substring(5,16) : '-') + '</td>' +
-                '<td style="white-space:nowrap;" class="text-center">' +
-                    '<a href="/defects/' + r.id + '" class="btn btn-outline-primary btn-sm me-1 action-btn" title="View">View</a>' +
-                    '<a href="/defects/' + r.id + '/edit" class="btn btn-outline-success btn-sm me-1 action-btn" title="Edit">Edit</a>' +
-                    '<button class="btn btn-outline-danger btn-sm action-btn delete-btn" data-id="' + r.id + '" title="Delete">Del</button>' +
+                '<td title="' + escapeHtml(r.root_cause || '') + '" style="color:#455a64;">' + textOrNotSet(r.root_cause, 20) + '</td>' +
+                '<td title="' + escapeHtml(r.action || '') + '" style="color:#455a64;">' + textOrNotSet(r.action, 20) + '</td>' +
+                '<td style="color:#757575;">' + (r.updated_at ? r.updated_at.replace('T',' ').substring(5,16) : '-') + '</td>' +
+                '<td class="text-center" style="white-space:nowrap;">' +
+                    '<a href="/defects/' + r.id + '" class="btn btn-outline-primary btn-sm me-1" style="padding:0.15rem 0.4rem; font-size:0.72rem;" title="View">View</a>' +
+                    '<a href="/defects/' + r.id + '/edit" class="btn btn-outline-success btn-sm me-1" style="padding:0.15rem 0.4rem; font-size:0.72rem;" title="Edit">Edit</a>' +
+                    '<button class="btn btn-outline-danger btn-sm delete-btn" style="padding:0.15rem 0.4rem; font-size:0.72rem;" data-id="' + r.id + '" title="Delete">Del</button>' +
                 '</td>' +
                 '</tr>';
         });
@@ -333,9 +326,49 @@
         });
     }
 
+    // ---- Filter: Defect Class → Value cascading ----
+    var _filterClassValueMap = {};
+    fetch('/api/defect-options').then(function(r) { return r.json(); }).then(function(data) {
+        _filterClassValueMap = data;
+        updateFilterDefectValue(); // initialize
+    });
+
+    function updateFilterDefectValue() {
+        var cls = document.getElementById('filterDefectClass').value;
+        var sel = document.getElementById('filterDefectValue');
+        sel.innerHTML = '<option value="">All</option>';
+        if (!cls) {
+            // Show all values from all classes
+            var allVals = {};
+            Object.keys(_filterClassValueMap).forEach(function(c) {
+                Object.keys(_filterClassValueMap[c]).forEach(function(v) { allVals[v] = 1; });
+            });
+            Object.keys(allVals).sort().forEach(function(v) {
+                var opt = document.createElement('option');
+                opt.value = v; opt.textContent = v;
+                sel.appendChild(opt);
+            });
+        } else {
+            var values = _filterClassValueMap[cls];
+            if (values) {
+                Object.keys(values).sort().forEach(function(v) {
+                    var opt = document.createElement('option');
+                    opt.value = v; opt.textContent = v;
+                    sel.appendChild(opt);
+                });
+            }
+        }
+    }
+
+    document.getElementById('filterDefectClass').addEventListener('change', function() {
+        document.getElementById('filterDefectValue').value = '';
+        updateFilterDefectValue();
+    });
+
     // ---- Sorting ----
     document.querySelectorAll('.sortable').forEach(function (th) {
         th.addEventListener('click', function () {
+            if (window._isResizing) return;
             const col = this.getAttribute('data-sort');
             if (sortBy === col) {
                 sortDir = sortDir === 'asc' ? 'desc' : 'asc';

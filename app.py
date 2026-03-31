@@ -1,5 +1,4 @@
 import os
-import sys
 import click
 from flask import Flask, redirect, url_for
 from flask_cors import CORS
@@ -73,15 +72,17 @@ def _migrate_columns(app):
     """Auto-add missing columns to existing tables."""
     from sqlalchemy import text, inspect
 
+    ALLOWED_COLUMNS = {"sequence_log": "TEXT", "buffer_log": "TEXT"}
+
     try:
         inspector = inspect(db.engine)
         existing = {col["name"] for col in inspector.get_columns("defect_reports")}
-        needed = {"sequence_log": "TEXT", "buffer_log": "TEXT"}
-        is_sqlite = "sqlite" in str(db.engine.url)
+        dialect = db.engine.dialect.name  # sqlite, mysql, postgresql
         with db.engine.connect() as conn:
-            for col_name, col_type in needed.items():
+            for col_name, col_type in ALLOWED_COLUMNS.items():
                 if col_name not in existing:
-                    if is_sqlite:
+                    # col_name and col_type are from hardcoded allowlist only
+                    if dialect == "sqlite":
                         conn.execute(text(f"ALTER TABLE defect_reports ADD COLUMN {col_name} {col_type}"))
                     else:
                         conn.execute(text(f"ALTER TABLE defect_reports ADD COLUMN {col_name} {col_type} NULL"))
@@ -111,4 +112,11 @@ def _seed_defaults():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5001)
+    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    port = int(os.environ.get("PORT", 5001))
+    app.run(
+        debug=debug,
+        host="0.0.0.0",
+        port=port,
+        exclude_patterns=["*.pyc", ".*", ".venv/*", "venv/*", "__pycache__/*", "logs/*"],
+    )

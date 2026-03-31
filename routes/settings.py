@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, session
 from routes.auth import login_required
 from models.system_config import SystemConfig
 from services.ai_service import test_ai_connection
@@ -73,6 +73,8 @@ def get_ai_settings():
 @settings_bp.route("/api/settings/ai", methods=["PUT"])
 @login_required
 def update_ai_settings():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Admin access required"}), 403
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -86,9 +88,21 @@ def update_ai_settings():
 @settings_bp.route("/api/settings/ai/test", methods=["POST"])
 @login_required
 def test_ai():
-    api_key = _read_env_key()
+    data = request.get_json(silent=True) or {}
+    api_key = data.get("api_key", "").strip()
+    key_source = "input"
     if not api_key:
-        return jsonify({"success": False, "message": "No API key configured"})
+        api_key = _read_env_key()
+        key_source = ".env file"
+    if not api_key:
+        api_key = SystemConfig.get_value("gemini_api_key") or ""
+        key_source = "database"
+    if not api_key:
+        return jsonify({"success": False, "message": "No API key configured. Please enter a key first.",
+                        "debug": "No key found in input, .env, or database"})
+
+    key_count = len([k for k in api_key.split(",") if k.strip()])
+    debug_info = f"source={key_source}, keys={key_count}, first_key={api_key[:8]}...{api_key.split(',')[0].strip()[-4:]}"
 
     success, message = test_ai_connection(api_key)
-    return jsonify({"success": success, "message": message})
+    return jsonify({"success": success, "message": message, "debug": debug_info})

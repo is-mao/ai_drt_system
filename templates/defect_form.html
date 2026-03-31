@@ -98,12 +98,18 @@
                 <!-- Defect Value -->
                 <div class="col-md-6">
                     <label for="fieldDefectValue" class="form-label">Defect Value <span class="text-danger">*</span></label>
-                    <select id="fieldDefectValue" name="defect_value" class="form-select" required>
-                        <option value="">-- Select Value --</option>
-                        {% for dv in defect_values %}
-                        <option value="{{ dv }}">{{ dv }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="input-group">
+                        <select id="fieldDefectValue" name="defect_value" class="form-select" required>
+                            <option value="">-- Select Class first --</option>
+                        </select>
+                        <input type="text" id="fieldDefectValueCustom" class="form-control" placeholder="Type defect value..." style="display:none;">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="toggleCustomValue" title="Toggle custom input" style="display:none;">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </div>
+                    <div id="defectValueDefinition" class="form-text text-muted" style="display:none; font-size:0.78rem; margin-top:4px;">
+                        <i class="bi bi-info-circle me-1"></i><span id="defectValueDefText"></span>
+                    </div>
                 </div>
 
                 <!-- PN - optional -->
@@ -127,20 +133,8 @@
                             <i class="bi bi-eraser me-1"></i>Clear
                         </button>
                     </div>
-                    <div class="input-group input-group-sm mb-1">
-                        <label class="btn btn-outline-secondary btn-sm mb-0" for="seqLogFile">
-                            <i class="bi bi-upload me-1"></i>
-                            Upload / Drop File
-                        </label>
-                        <input type="file" id="seqLogFile" class="d-none" accept=".log,.txt,.csv,.json,.gz,.gzm">
-                        <span id="seqLogFileName" class="form-control form-control-sm bg-light text-muted" style="overflow:hidden; text-overflow:ellipsis;">No file selected</span>
-                        <button type="button" id="seqLogClearFile" class="btn btn-outline-danger btn-sm d-none">Clear</button>
-                    </div>
-                    <div class="log-drop-zone" id="seqLogDropZone">
-                        <textarea id="fieldSequenceLog" name="sequence_log" class="form-control log-textarea" rows="8"
-                                  placeholder="Paste sequence log here, or drag & drop file (.txt, .log, .gz, .gzm)..."></textarea>
-                        <div class="drop-overlay d-none">Drop file here</div>
-                    </div>
+                    <textarea id="fieldSequenceLog" name="sequence_log" class="form-control log-textarea" rows="8"
+                              placeholder="Paste sequence log here..."></textarea>
                 </div>
 
                 <!-- Buffer Log -->
@@ -152,25 +146,13 @@
                             <i class="bi bi-eraser me-1"></i>Clear
                         </button>
                     </div>
-                    <div class="input-group input-group-sm mb-1">
-                        <label class="btn btn-outline-secondary btn-sm mb-0" for="bufLogFile">
-                            <i class="bi bi-upload me-1"></i>
-                            Upload / Drop File
-                        </label>
-                        <input type="file" id="bufLogFile" class="d-none" accept=".log,.txt,.csv,.json,.gz,.gzm">
-                        <span id="bufLogFileName" class="form-control form-control-sm bg-light text-muted" style="overflow:hidden; text-overflow:ellipsis;">No file selected</span>
-                        <button type="button" id="bufLogClearFile" class="btn btn-outline-danger btn-sm d-none">Clear</button>
-                    </div>
-                    <div class="log-drop-zone" id="bufLogDropZone">
-                        <textarea id="fieldBufferLog" name="buffer_log" class="form-control log-textarea" rows="8"
-                                  placeholder="Paste buffer log here, or drag & drop file (.txt, .log, .gz, .gzm)..."></textarea>
-                        <div class="drop-overlay d-none">Drop file here</div>
-                    </div>
+                    <textarea id="fieldBufferLog" name="buffer_log" class="form-control log-textarea" rows="8"
+                              placeholder="Paste buffer log here..."></textarea>
                 </div>
 
                 <!-- AI Diagnosis Section -->
-                <div class="col-12">
-                    <div class="card ai-section">
+                <div class="col-md-6">
+                    <div class="card ai-section h-100">
                         <div class="card-body">
                             <h6 class="card-title mb-3">
                                 <i class="bi bi-robot me-1"></i>
@@ -223,18 +205,23 @@
                 </div>
 
                 <!-- Same History Query Section -->
-                <div class="col-12">
-                    <div class="card history-section">
+                <div class="col-md-6">
+                    <div class="card history-section h-100">
                         <div class="card-body">
                             <h6 class="card-title mb-3">
                                 <i class="bi bi-clock-history me-1"></i>
                                 Same History Query (Root Cause & Action)
                             </h6>
                             <p class="text-muted small mb-2">Query latest 3 records with same BU and Failure. Select one to apply.</p>
-                            <button type="button" id="historyQueryBtn" class="btn btn-sm btn-outline-primary">
-                                <span id="historySpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
-                                Query History
-                            </button>
+                            <div class="d-flex gap-2 align-items-center">
+                                <button type="button" id="historyQueryBtn" class="btn btn-sm btn-outline-primary">
+                                    <span id="historySpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                    Query History
+                                </button>
+                                <button type="button" id="historyClearBtn" class="btn btn-sm btn-outline-secondary d-none">
+                                    <i class="bi bi-x-lg me-1"></i>Clear
+                                </button>
+                            </div>
 
                             <!-- History Results -->
                             <div id="historyResultBox" class="mt-2 d-none">
@@ -245,36 +232,106 @@
                     </div>
                 </div>
 
-                <!-- Root Cause (editable, AI-fillable) -->
-                <div class="col-md-6">
-                    <label for="fieldRootCause" class="form-label">Root Cause</label>
-                    <textarea id="fieldRootCause" name="root_cause" class="form-control" rows="6"
-                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
-                </div>
-
-                <!-- Action (editable, AI-fillable) -->
-                <div class="col-md-6">
-                    <label for="fieldAction" class="form-label">Action</label>
-                    <textarea id="fieldAction" name="action" class="form-control" rows="6"
-                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
-                </div>
-
                 <!-- AI Beautification Section -->
-                <div class="col-12">
-                    <div class="card" style="border-left: 4px solid var(--purple); background: var(--purple-light);">
-                        <div class="card-body py-3">
-                            <h6 class="card-title mb-2">
-                                <i class="bi bi-stars me-1" style="color: var(--purple);"></i>
+                <div class="col-md-6">
+                    <div class="card beautify-section h-100">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="bi bi-stars me-1"></i>
                                 AI Beautification (Root Cause &amp; Action)
                             </h6>
                             <p class="text-muted small mb-2">Improve the grammar, clarity, and readability of Root Cause &amp; Action using AI. Review changes before applying.</p>
-                            <button type="button" id="aiBeautifyBtn" class="btn btn-sm" style="background: var(--purple); color: #fff; border: none;">
+                            <button type="button" id="aiBeautifyBtn" class="btn btn-sm btn-ai">
                                 <span id="beautifySpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
                                 <i class="bi bi-magic me-1"></i>Beautify with AI
                             </button>
+                        </div>
+                    </div>
+                </div>
 
-                            <!-- Beautify Result: Before/After comparison -->
-                            <div id="beautifyResultBox" class="mt-3 d-none">
+                <!-- AI Translation Section -->
+                <div class="col-md-6">
+                    <div class="card translate-section h-100">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="bi bi-translate me-1"></i>
+                                Translate Root Cause &amp; Action
+                            </h6>
+                            <p class="text-muted small mb-2">Translate Root Cause &amp; Action into another language using AI. Original text will not be changed.</p>
+                            <div class="d-flex gap-2 align-items-center">
+                                <button type="button" class="btn btn-sm translate-lang-btn" data-lang="zh" style="background: #0288d1; color: #fff; border: none;">
+                                    <span class="translate-spinner spinner-border spinner-border-sm d-none" role="status"></span>
+                                    <i class="bi bi-translate me-1"></i>中文 (Chinese)
+                                </button>
+                                <button type="button" class="btn btn-sm translate-lang-btn" data-lang="vi" style="background: #00796b; color: #fff; border: none;">
+                                    <span class="translate-spinner spinner-border spinner-border-sm d-none" role="status"></span>
+                                    <i class="bi bi-translate me-1"></i>Tiếng Việt (Vietnamese)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Translate Result (full width, shown when translate is triggered) -->
+                <div class="col-12">
+                    <div id="translateResultBox" class="d-none">
+                        <div class="card" style="border-left: 4px solid #0288d1; background: #e1f5fe;">
+                            <div class="card-body py-3">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-header py-2 bg-light">
+                                                <span class="badge bg-secondary me-1">Original</span> Root Cause
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="translateRcOriginal"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100" style="border-color: #0288d1;">
+                                            <div class="card-header py-2" style="background: #e1f5fe;">
+                                                <span class="badge me-1" style="background: #0288d1;" id="translateRcLangBadge">Translated</span> Root Cause
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="translateRcResult"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-header py-2 bg-light">
+                                                <span class="badge bg-secondary me-1">Original</span> Action
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="translateActionOriginal"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card h-100" style="border-color: #0288d1;">
+                                            <div class="card-header py-2" style="background: #e1f5fe;">
+                                                <span class="badge me-1" style="background: #0288d1;" id="translateActionLangBadge">Translated</span> Action
+                                            </div>
+                                            <div class="card-body py-2" style="white-space: pre-wrap; font-size: 0.875rem;" id="translateActionResult"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex gap-2">
+                                    <button type="button" id="translateCopyRcBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-clipboard me-1"></i>Copy Root Cause</button>
+                                    <button type="button" id="translateCopyActionBtn" class="btn btn-outline-primary btn-sm"><i class="bi bi-clipboard me-1"></i>Copy Action</button>
+                                    <button type="button" id="translateCopyBothBtn" class="btn btn-primary btn-sm"><i class="bi bi-clipboard-check me-1"></i>Copy Both</button>
+                                    <button type="button" id="translateCloseBtn" class="btn btn-outline-secondary btn-sm">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Translate Error -->
+                    <div id="translateErrorBox" class="alert alert-warning mt-2 d-none mb-0">
+                        <span id="translateErrorText"></span>
+                    </div>
+                </div>
+
+                <!-- Beautify Result (full width, shown when beautify is triggered) -->
+                <div class="col-12">
+                    <div id="beautifyResultBox" class="d-none">
+                        <div class="card" style="border-left: 4px solid var(--purple); background: var(--purple-light);">
+                            <div class="card-body py-3">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <div class="card h-100">
@@ -316,13 +373,27 @@
                                     <button type="button" id="beautifyDiscardBtn" class="btn btn-outline-secondary btn-sm">Discard</button>
                                 </div>
                             </div>
-
-                            <!-- Beautify Error -->
-                            <div id="beautifyErrorBox" class="alert alert-warning mt-2 d-none mb-0">
-                                <span id="beautifyErrorText"></span>
-                            </div>
                         </div>
                     </div>
+
+                    <!-- Beautify Error -->
+                    <div id="beautifyErrorBox" class="alert alert-warning mt-2 d-none mb-0">
+                        <span id="beautifyErrorText"></span>
+                    </div>
+                </div>
+
+                <!-- Root Cause (editable, AI-fillable) -->
+                <div class="col-md-6">
+                    <label for="fieldRootCause" class="form-label">Root Cause</label>
+                    <textarea id="fieldRootCause" name="root_cause" class="form-control" rows="6"
+                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
+                </div>
+
+                <!-- Action (editable, AI-fillable) -->
+                <div class="col-md-6">
+                    <label for="fieldAction" class="form-label">Action</label>
+                    <textarea id="fieldAction" name="action" class="form-control" rows="6"
+                              placeholder="Can be filled by AI diagnosis or manually"></textarea>
                 </div>
             </div>
 
@@ -403,64 +474,7 @@
         return await file.text();
     }
 
-    // ---- File upload + drag-and-drop setup ----
-    function setupFileUpload(fileInputId, textareaId, fileNameId, clearBtnId, dropZoneId) {
-        const fileInput = document.getElementById(fileInputId);
-        const textarea = document.getElementById(textareaId);
-        const fileName = document.getElementById(fileNameId);
-        const clearBtn = document.getElementById(clearBtnId);
-        const dropZone = document.getElementById(dropZoneId);
-        const overlay = dropZone.querySelector('.drop-overlay');
-
-        async function handleFile(file) {
-            if (!file) return;
-            fileName.textContent = file.name;
-            fileName.classList.remove('text-muted');
-            clearBtn.classList.remove('d-none');
-            try {
-                textarea.value = await readFileContent(file);
-            } catch (err) {
-                appAlert('Failed to read file: ' + err.message, 'Error', 'danger');
-            }
-        }
-
-        fileInput.addEventListener('change', function () {
-            handleFile(this.files[0]);
-        });
-
-        clearBtn.addEventListener('click', function () {
-            fileInput.value = '';
-            textarea.value = '';
-            fileName.textContent = 'No file selected';
-            fileName.classList.add('text-muted');
-            clearBtn.classList.add('d-none');
-        });
-
-        // Drag-and-drop events
-        ['dragenter', 'dragover'].forEach(function (evtName) {
-            dropZone.addEventListener(evtName, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                overlay.classList.remove('d-none');
-                dropZone.classList.add('drag-active');
-            });
-        });
-        ['dragleave', 'drop'].forEach(function (evtName) {
-            dropZone.addEventListener(evtName, function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                overlay.classList.add('d-none');
-                dropZone.classList.remove('drag-active');
-            });
-        });
-        dropZone.addEventListener('drop', function (e) {
-            var files = e.dataTransfer.files;
-            if (files.length > 0) handleFile(files[0]);
-        });
-    }
-
-    setupFileUpload('seqLogFile', 'fieldSequenceLog', 'seqLogFileName', 'seqLogClearFile', 'seqLogDropZone');
-    setupFileUpload('bufLogFile', 'fieldBufferLog', 'bufLogFileName', 'bufLogClearFile', 'bufLogDropZone');
+    // ---- File upload removed, textarea-only mode ----
 
     // Clear Content buttons — custom modal confirmation
     const clearModal = new bootstrap.Modal(document.getElementById('clearConfirmModal'));
@@ -491,6 +505,121 @@
         showClearConfirm('fieldBufferLog', 'Buffer Log');
     });
 
+    // ---- Defect Class → Value cascading ----
+    var _classValueMap = {};
+
+    function loadClassValueMap() {
+        return fetch('/api/defect-options')
+            .then(function (r) { return r.json(); })
+            .then(function (data) { _classValueMap = data; });
+    }
+
+    function updateDefectValueOptions(selectedClass, presetValue) {
+        var sel = document.getElementById('fieldDefectValue');
+        var defDiv = document.getElementById('defectValueDefinition');
+        var defText = document.getElementById('defectValueDefText');
+        var customInput = document.getElementById('fieldDefectValueCustom');
+        var toggleBtn = document.getElementById('toggleCustomValue');
+
+        sel.innerHTML = '';
+        defDiv.style.display = 'none';
+
+        var values = _classValueMap[selectedClass];
+        if (!selectedClass) {
+            sel.innerHTML = '<option value="">-- Select Class first --</option>';
+            toggleBtn.style.display = 'none';
+            customInput.style.display = 'none';
+            return;
+        }
+
+        if (!values || Object.keys(values).length === 0) {
+            // No predefined values → show text input directly
+            sel.style.display = 'none';
+            customInput.style.display = '';
+            customInput.setAttribute('required', 'required');
+            sel.removeAttribute('required');
+            toggleBtn.style.display = 'none';
+            if (presetValue) customInput.value = presetValue;
+            return;
+        }
+
+        // Has predefined values → show select + toggle button
+        sel.style.display = '';
+        sel.setAttribute('required', 'required');
+        toggleBtn.style.display = '';
+
+        sel.innerHTML = '<option value="">-- Select Value --</option>';
+        var keys = Object.keys(values).sort();
+        keys.forEach(function (k) {
+            var opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = k;
+            sel.appendChild(opt);
+        });
+
+        if (presetValue) {
+            // If preset value exists in the list, select it
+            var found = false;
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === presetValue) {
+                    sel.value = presetValue;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found && presetValue) {
+                // Value not in list, switch to custom input
+                customInput.value = presetValue;
+                customInput.style.display = '';
+                sel.style.display = 'none';
+                sel.removeAttribute('required');
+                customInput.setAttribute('required', 'required');
+            }
+        }
+        showDefinition();
+    }
+
+    function showDefinition() {
+        var defDiv = document.getElementById('defectValueDefinition');
+        var defText = document.getElementById('defectValueDefText');
+        var cls = document.getElementById('fieldDefectClass').value;
+        var val = document.getElementById('fieldDefectValue').value;
+        var values = _classValueMap[cls];
+        if (values && val && values[val]) {
+            defText.textContent = values[val];
+            defDiv.style.display = 'block';
+        } else {
+            defDiv.style.display = 'none';
+        }
+    }
+
+    document.getElementById('fieldDefectClass').addEventListener('change', function () {
+        document.getElementById('fieldDefectValueCustom').value = '';
+        document.getElementById('fieldDefectValueCustom').style.display = 'none';
+        updateDefectValueOptions(this.value, '');
+    });
+
+    document.getElementById('fieldDefectValue').addEventListener('change', showDefinition);
+
+    document.getElementById('toggleCustomValue').addEventListener('click', function () {
+        var sel = document.getElementById('fieldDefectValue');
+        var customInput = document.getElementById('fieldDefectValueCustom');
+        if (customInput.style.display === 'none') {
+            customInput.style.display = '';
+            sel.style.display = 'none';
+            sel.removeAttribute('required');
+            customInput.setAttribute('required', 'required');
+            document.getElementById('defectValueDefinition').style.display = 'none';
+        } else {
+            customInput.style.display = 'none';
+            customInput.value = '';
+            sel.style.display = '';
+            sel.setAttribute('required', 'required');
+            customInput.removeAttribute('required');
+            showDefinition();
+        }
+    });
+
     // ---- Auto-calculate Week# for new records ----
     function calculateCurrentWeek() {
         const now = new Date();
@@ -515,7 +644,7 @@
         document.getElementById('fieldSn').value = recordData.sn || '';
         document.getElementById('fieldFailure').value = recordData.failure || '';
         document.getElementById('fieldDefectClass').value = recordData.defect_class || '';
-        document.getElementById('fieldDefectValue').value = recordData.defect_value || '';
+        // Defect Value will be set after map loads (see below)
         document.getElementById('fieldRootCause').value = recordData.root_cause || '';
         document.getElementById('fieldAction').value = recordData.action || '';
         document.getElementById('fieldPn').value = recordData.pn || '';
@@ -536,6 +665,15 @@
         }
     }
 
+    // ---- Load class-value mapping and initialize cascading ----
+    loadClassValueMap().then(function () {
+        var cls = document.getElementById('fieldDefectClass').value;
+        if (cls) {
+            var presetVal = (mode === 'edit' && recordData) ? (recordData.defect_value || '') : '';
+            updateDefectValueOptions(cls, presetVal);
+        }
+    });
+
     // ---- Collect form data ----
     function collectFormData() {
         var seqLog = document.getElementById('fieldSequenceLog').value;
@@ -554,7 +692,9 @@
             record_time: document.getElementById('fieldRecordTime').value,
             failure: document.getElementById('fieldFailure').value,
             defect_class: document.getElementById('fieldDefectClass').value,
-            defect_value: document.getElementById('fieldDefectValue').value,
+            defect_value: document.getElementById('fieldDefectValueCustom').style.display !== 'none'
+                ? document.getElementById('fieldDefectValueCustom').value
+                : document.getElementById('fieldDefectValue').value,
             root_cause: document.getElementById('fieldRootCause').value,
             action: document.getElementById('fieldAction').value,
             pn: document.getElementById('fieldPn').value,
@@ -791,6 +931,7 @@
             const json = await resp.json();
 
             resultBox.classList.remove('d-none');
+            document.getElementById('historyClearBtn').classList.remove('d-none');
 
             if (json.success && json.results && json.results.length > 0) {
                 json.results.forEach(function (r, i) {
@@ -800,7 +941,7 @@
                         '<div class="card-body py-2 px-3">' +
                             '<div class="d-flex justify-content-between align-items-start mb-1">' +
                                 '<span class="badge bg-secondary me-2">#' + (i + 1) + '</span>' +
-                                '<small class="text-muted">ID: ' + r.id + ' | ' + r.record_time + ' | SN: ' + (r.sn || 'N/A') + ' | Station: ' + (r.station || 'N/A') + '</small>' +
+                                '<small class="text-muted">ID: ' + escapeHtml(String(r.id)) + ' | ' + escapeHtml(r.record_time || '') + ' | SN: ' + escapeHtml(r.sn || 'N/A') + ' | Station: ' + escapeHtml(r.station || 'N/A') + '</small>' +
                             '</div>' +
                             '<div class="row g-2">' +
                                 '<div class="col-md-6">' +
@@ -854,6 +995,14 @@
             btn.disabled = false;
             spinner.classList.add('d-none');
         }
+    });
+
+    // ---- History Clear Button ----
+    document.getElementById('historyClearBtn').addEventListener('click', function () {
+        document.getElementById('historyResultBox').classList.add('d-none');
+        document.getElementById('historyNoResult').classList.add('d-none');
+        document.getElementById('historyCards').innerHTML = '';
+        this.classList.add('d-none');
     });
 
     // ---- AI Beautification ----
@@ -926,12 +1075,87 @@
         document.getElementById('beautifyResultBox').classList.add('d-none');
     });
 
-    // HTML escape helper
-    function escapeHtml(text) {
-        var div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    // ---- AI Translation ----
+    var translateRcText = '', translateActionText = '';
+    var langLabels = { zh: '中文', vi: 'Tiếng Việt' };
+
+    document.querySelectorAll('.translate-lang-btn').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            var rootCause = document.getElementById('fieldRootCause').value.trim();
+            var action = document.getElementById('fieldAction').value.trim();
+            var lang = this.dataset.lang;
+
+            if (!rootCause && !action) {
+                appAlert('Please fill in Root Cause or Action first before translating.', 'Validation');
+                return;
+            }
+
+            var spinner = this.querySelector('.translate-spinner');
+            var resultBox = document.getElementById('translateResultBox');
+            var errorBox = document.getElementById('translateErrorBox');
+
+            // Disable all translate buttons
+            document.querySelectorAll('.translate-lang-btn').forEach(function (b) { b.disabled = true; });
+            spinner.classList.remove('d-none');
+            resultBox.classList.add('d-none');
+            errorBox.classList.add('d-none');
+
+            try {
+                var resp = await fetch('/api/ai/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ root_cause: rootCause, action: action, target_lang: lang }),
+                });
+                var json = await resp.json();
+
+                if (json.success) {
+                    translateRcText = json.root_cause || '';
+                    translateActionText = json.action || '';
+
+                    document.getElementById('translateRcOriginal').textContent = rootCause || '(empty)';
+                    document.getElementById('translateRcResult').textContent = translateRcText;
+                    document.getElementById('translateActionOriginal').textContent = action || '(empty)';
+                    document.getElementById('translateActionResult').textContent = translateActionText;
+                    document.getElementById('translateRcLangBadge').textContent = langLabels[lang] || lang;
+                    document.getElementById('translateActionLangBadge').textContent = langLabels[lang] || lang;
+                    resultBox.classList.remove('d-none');
+                } else {
+                    document.getElementById('translateErrorText').textContent = json.error || 'Translation failed.';
+                    errorBox.classList.remove('d-none');
+                }
+            } catch (err) {
+                document.getElementById('translateErrorText').textContent = 'Request failed: ' + (err.message || 'Network error');
+                errorBox.classList.remove('d-none');
+            } finally {
+                document.querySelectorAll('.translate-lang-btn').forEach(function (b) { b.disabled = false; });
+                spinner.classList.add('d-none');
+            }
+        });
+    });
+
+    document.getElementById('translateCopyRcBtn').addEventListener('click', function () {
+        navigator.clipboard.writeText(translateRcText).then(function () {
+            showToast('Root Cause copied to clipboard', 'success');
+        });
+    });
+
+    document.getElementById('translateCopyActionBtn').addEventListener('click', function () {
+        navigator.clipboard.writeText(translateActionText).then(function () {
+            showToast('Action copied to clipboard', 'success');
+        });
+    });
+
+    document.getElementById('translateCopyBothBtn').addEventListener('click', function () {
+        var text = 'Root Cause:\n' + translateRcText + '\n\nAction:\n' + translateActionText;
+        navigator.clipboard.writeText(text).then(function () {
+            showToast('Both copied to clipboard', 'success');
+        });
+    });
+
+    document.getElementById('translateCloseBtn').addEventListener('click', function () {
+        document.getElementById('translateResultBox').classList.add('d-none');
+    });
+
 })();
 </script>
 {% endblock %}

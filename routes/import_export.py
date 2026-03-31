@@ -3,7 +3,7 @@ from models import db
 from models.defect_report import DefectReport
 from flask import Blueprint, request, jsonify, render_template, send_file
 from routes.auth import login_required
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -72,7 +72,7 @@ def import_page():
 @import_export_bp.route("/pending", methods=["GET"])
 @login_required
 def pending_page():
-    return render_template("pending.html", bu_options=Config.BU_OPTIONS)
+    return render_template("pending.html", bu_options=Config.BU_OPTIONS, defect_classes=Config.DEFECT_CLASSES)
 
 
 @import_export_bp.route("/api/import/excel", methods=["POST"])
@@ -155,8 +155,6 @@ def import_excel():
                     # Try as Excel serial number first (raw XML fallback returns numbers as strings)
                     try:
                         serial = float(record_time)
-                        from datetime import timedelta
-
                         excel_epoch = datetime(1899, 12, 30)
                         record_time = excel_epoch + timedelta(days=serial)
                     except (ValueError, TypeError):
@@ -304,7 +302,7 @@ def export_excel():
         except ValueError:
             pass
 
-    records = query.order_by(DefectReport.record_time.desc()).all()
+    records = query.order_by(DefectReport.record_time.desc()).limit(50000).all()
 
     include_log = request.args.get("exclude_log") != "1"
     columns = EXPORT_COLUMNS + LOG_COLUMNS if include_log else EXPORT_COLUMNS
@@ -332,12 +330,18 @@ def export_excel():
         cell.alignment = header_align
         cell.border = thin_border
 
-    # Write data rows
+    # Write data rows — strip illegal XML control characters for openpyxl
+    import re
+
+    _illegal_xml_re = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
     for row_idx, record in enumerate(records, start=2):
         for col_idx, (field, _) in enumerate(columns, start=1):
             value = getattr(record, field, "")
             if isinstance(value, datetime):
                 value = value.strftime("%Y-%m-%d %H:%M:%S")
+            elif isinstance(value, str):
+                value = _illegal_xml_re.sub("", value)
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.border = thin_border
 
@@ -595,8 +599,6 @@ def import_cesium():
                     # Try as Excel serial number first (raw XML returns numbers as strings)
                     try:
                         serial = float(record_time)
-                        from datetime import timedelta
-
                         excel_epoch = datetime(1899, 12, 30)
                         record_time = excel_epoch + timedelta(days=serial)
                     except (ValueError, TypeError):
@@ -683,16 +685,74 @@ def import_cesium():
 @import_export_bp.route("/api/draft-records", methods=["GET"])
 @login_required
 def api_draft_records():
-    """Get draft records for the import page."""
+    """Get draft records with filtering and sorting."""
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 25, type=int)
     bu = request.args.get("bu", "").strip()
+    station = request.args.get("station", "").strip()
+    defect_class = request.args.get("defect_class", "").strip()
+    defect_value = request.args.get("defect_value", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    search = request.args.get("search", "").strip()
+    sort_by = request.args.get("sort_by", "created_at").strip()
+    sort_dir = request.args.get("sort_dir", "desc").strip()
 
     query = DefectReport.query.filter_by(status="draft")
     if bu:
         query = query.filter(DefectReport.bu == bu)
+    if station:
+        query = query.filter(DefectReport.station.ilike(f"%{station}%"))
+    if defect_class:
+        query = query.filter(DefectReport.defect_class == defect_class)
+    if defect_value:
+        query = query.filter(DefectReport.defect_value == defect_value)
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(DefectReport.record_time >= dt_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d")
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(DefectReport.record_time <= dt_to)
+        except ValueError:
+            pass
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                DefectReport.sn.ilike(search_pattern),
+                DefectReport.failure.ilike(search_pattern),
+                DefectReport.root_cause.ilike(search_pattern),
+                DefectReport.pn.ilike(search_pattern),
+                DefectReport.pcap_n.ilike(search_pattern),
+                DefectReport.server.ilike(search_pattern),
+            )
+        )
 
-    query = query.order_by(DefectReport.created_at.desc())
+    # Sorting
+    allowed_sort = {
+        "id",
+        "bu",
+        "week_number",
+        "pcap_n",
+        "station",
+        "server",
+        "sn",
+        "record_time",
+        "failure",
+        "defect_class",
+        "defect_value",
+        "created_at",
+    }
+    if sort_by not in allowed_sort:
+        sort_by = "created_at"
+    sort_col = getattr(DefectReport, sort_by)
+    query = query.order_by(sort_col.asc() if sort_dir == "asc" else sort_col.desc())
+
     total = query.count()
     from math import ceil
 
@@ -754,6 +814,20 @@ def api_draft_complete(id):
                 continue
 
     record.status = "complete"
+
+    # Validate required fields before completing
+    missing = []
+    if not record.bu:
+        missing.append("BU")
+    if not record.sn:
+        missing.append("SN")
+    if not record.station:
+        missing.append("Station")
+    if not record.failure:
+        missing.append("Failure")
+    if missing:
+        return jsonify({"success": False, "error": f"Missing required fields: {', '.join(missing)}"}), 400
+
     db.session.commit()
 
     return jsonify({"success": True, "data": record.to_dict(include_log=True)})
@@ -764,6 +838,8 @@ def api_draft_complete(id):
 def api_draft_delete(id):
     """Delete a draft record."""
     record = DefectReport.query.get_or_404(id)
+    if record.status != "draft":
+        return jsonify({"success": False, "error": "Record is not a draft"}), 400
     db.session.delete(record)
     db.session.commit()
     return jsonify({"success": True})

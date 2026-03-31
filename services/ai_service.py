@@ -7,7 +7,7 @@ from services.failure_dict import lookup_failure
 from services.historical_search import search_similar_failures
 
 # Models to try in order (fallback if quota exhausted on one)
-GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash"]
 
 # Retry config (like stock_analysis)
 MAX_RETRIES = 2
@@ -217,6 +217,85 @@ Action:
     return {"success": False, "error": "All API keys exhausted (quota). Please try again later."}
 
 
+def translate_root_cause_action(root_cause, action, target_lang):
+    """Use Gemini AI to translate Root Cause and Action text.
+
+    Args:
+        root_cause: Root Cause text to translate
+        action: Action text to translate
+        target_lang: Target language code ('zh' for Chinese, 'vi' for Vietnamese)
+
+    Returns: {'success': bool, 'root_cause': str, 'action': str, 'error': str|None}
+    """
+    api_keys = _get_api_keys()
+    if not api_keys:
+        return {"success": False, "error": "No API key configured. Set GEMINI_API_KEY in .env or Settings page."}
+
+    lang_names = {"zh": "Chinese (Simplified)", "vi": "Vietnamese"}
+    lang_name = lang_names.get(target_lang, target_lang)
+
+    prompt = f"""You are a professional translator for manufacturing defect reports.
+Translate the following Root Cause and Action text into {lang_name}.
+
+Rules:
+- Translate accurately, preserving all technical terms and meaning.
+- Keep technical abbreviations (e.g. DIMM, PCIe, BIOS, SN, FW) unchanged.
+- Keep numbered action steps as numbered list.
+- Plain text ONLY. No markdown, no bold, no asterisks.
+- If the original text is empty, return empty.
+
+Original Root Cause:
+{root_cause}
+
+Original Action:
+{action}
+
+Format your response EXACTLY as:
+Root Cause: [translated text]
+Action:
+1. [translated step]
+2. [translated step]
+..."""
+
+    for api_key in api_keys:
+        try:
+            try:
+                from google import genai
+
+                client = genai.Client(api_key=api_key)
+                for model_name in GEMINI_MODELS:
+                    try:
+                        response = client.models.generate_content(model=model_name, contents=prompt)
+                        result_text = response.text
+                        new_rc, new_action = _parse_ai_response(result_text)
+                        return {
+                            "success": True,
+                            "root_cause": new_rc or root_cause,
+                            "action": new_action or action,
+                        }
+                    except Exception as e:
+                        err_str = str(e).lower()
+                        if "quota" in err_str or "429" in err_str:
+                            continue
+                        raise
+            except ImportError:
+                result_text = _call_gemini_legacy(api_key, prompt, "", "", "", "", "")
+                if result_text:
+                    new_rc, new_action = _parse_ai_response(result_text)
+                    return {
+                        "success": True,
+                        "root_cause": new_rc or root_cause,
+                        "action": new_action or action,
+                    }
+        except Exception as e:
+            err_str = str(e).lower()
+            if "quota" in err_str or "429" in err_str:
+                continue
+            return {"success": False, "error": str(e)}
+
+    return {"success": False, "error": "All API keys exhausted (quota). Please try again later."}
+
+
 def _build_prompt(bu, station, failure, defect_class, log_content, keywords=""):
     """Build the shared AI analysis prompt."""
     keywords_section = ""
@@ -235,16 +314,17 @@ Defect Class: {defect_class}
 
 IMPORTANT formatting rules:
 - Plain text ONLY. No markdown, no bold (**), no asterisks, no special formatting.
-- Root Cause: 1-3 concise sentences.
-- Action: numbered corrective steps. Only include steps for the actual cause category:
+- Root Cause: 1-2 SHORT sentences MAXIMUM. Be extremely concise — state ONLY the direct cause and the specific component/signal involved. No background explanation, no log quoting, no context repetition. Example good format: "DIMM slot A1 memory module defective, causing memory test failure."
+- Action: numbered corrective steps (2-4 steps max). Only include steps for the actual cause category:
   * If operator issue: only operator-related steps
   * If test program issue: only test program-related steps
   * If test station/equipment issue: only station/equipment-related steps
   * May combine categories if multiple causes exist
+  * Each step should be one short sentence
   * Last step must always be: Retest and confirm PASS
 
 Format your response EXACTLY as:
-Root Cause: [plain text analysis]
+Root Cause: [1-2 short sentences only]
 Action:
 1. [step]
 2. [step]
@@ -321,32 +401,42 @@ def _call_gemini_legacy(api_key, log_content, failure, defect_class, station, bu
 
 
 def test_ai_connection(api_key):
-    """Test if the Gemini API key is valid."""
-    try:
-        from google import genai
+    """Test if the Gemini API key is valid. Supports comma-separated keys."""
+    keys = [k.strip() for k in api_key.split(",") if k.strip()]
+    if not keys:
+        return False, "No API key provided."
 
-        client = genai.Client(api_key=api_key)
-        for model_name in GEMINI_MODELS:
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents="Say 'connected' if you can read this.",
-                )
-                return True, f"[{model_name}] {response.text}"
-            except Exception as e:
-                if "quota" in str(e).lower() or "429" in str(e):
-                    continue
-                raise
-        return False, "All models quota exhausted. Check billing at https://ai.google.dev"
-    except ImportError:
+    last_error = ""
+    for key in keys:
         try:
-            import google.generativeai as genai
+            from google import genai
 
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            response = model.generate_content("Say 'connected' if you can read this.")
-            return True, response.text
+            client = genai.Client(api_key=key)
+            for model_name in GEMINI_MODELS:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents="Say 'connected' if you can read this.",
+                    )
+                    key_hint = f"...{key[-4:]}" if len(key) > 4 else "****"
+                    return True, f"[{model_name}] {response.text} (key {key_hint})"
+                except Exception as e:
+                    if "quota" in str(e).lower() or "429" in str(e):
+                        continue
+                    raise
+            last_error = f"Key ...{key[-4:]}: all models quota exhausted"
+        except ImportError:
+            try:
+                import google.generativeai as genai
+
+                genai.configure(api_key=key)
+                model = genai.GenerativeModel("gemini-2.0-flash")
+                response = model.generate_content("Say 'connected' if you can read this.")
+                key_hint = f"...{key[-4:]}" if len(key) > 4 else "****"
+                return True, f"{response.text} (key {key_hint})"
+            except Exception as e:
+                last_error = str(e)
         except Exception as e:
-            return False, str(e)
-    except Exception as e:
-        return False, str(e)
+            last_error = str(e)
+
+    return False, last_error or "All keys failed"

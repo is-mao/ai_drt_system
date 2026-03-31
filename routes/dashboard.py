@@ -39,9 +39,12 @@ def dashboard_summary():
             pass
 
     total_count = query.count()
-    bu_counts = {b: query.filter(DefectReport.bu == b).count() for b in Config.BU_OPTIONS}
+    # Single GROUP BY query instead of N+1
+    bu_rows = query.with_entities(DefectReport.bu, func.count(DefectReport.id)).group_by(DefectReport.bu).all()
+    bu_counts = {b: 0 for b in Config.BU_OPTIONS}
+    bu_counts.update({r[0]: r[1] for r in bu_rows if r[0] in bu_counts})
 
-    # This week: based on Jan 1 = W01 calculation
+    # This week count: apply same filters as the main query
     today = datetime.now().date()
     jan1 = today.replace(month=1, day=1)
     current_week = (today.timetuple().tm_yday - 1) // 7 + 1
@@ -50,12 +53,12 @@ def dashboard_summary():
     dec31 = today.replace(month=12, day=31)
     if week_end > dec31:
         week_end = dec31
-    this_week_count = DefectReport.query.filter(
+    this_week_query = query.filter(
         DefectReport.record_time >= datetime.combine(week_start, datetime.min.time()),
         DefectReport.record_time
         <= datetime.combine(week_end, datetime.min.time()).replace(hour=23, minute=59, second=59),
-        db.or_(DefectReport.status == "complete", DefectReport.status.is_(None)),
-    ).count()
+    )
+    this_week_count = this_week_query.count()
 
     result = {
         "total_count": total_count,
@@ -89,32 +92,47 @@ def weekly_trend():
     labels = []
     bu_datasets = {b: [] for b in Config.BU_OPTIONS}
 
+    # Build week boundaries
+    week_ranges = []
     for w in range(1, show_weeks + 1):
         week_start = jan1 + timedelta(days=(w - 1) * 7)
-        # Last week may be shorter
         week_end_date = jan1 + timedelta(days=w * 7 - 1)
         if week_end_date > dec31:
             week_end_date = dec31
-
         year_short = year % 100
         labels.append(f"{year_short}WK{w:02d}")
+        week_ranges.append((w, week_start, week_end_date))
 
-        dt_start = datetime.combine(week_start, datetime.min.time())
-        dt_end = datetime.combine(week_end_date, datetime.min.time()).replace(hour=23, minute=59, second=59)
+    # Single query: fetch all counts grouped by week and BU
+    if week_ranges:
+        dt_year_start = datetime.combine(week_ranges[0][1], datetime.min.time())
+        dt_year_end = datetime.combine(week_ranges[-1][2], datetime.min.time()).replace(hour=23, minute=59, second=59)
 
         base_query = DefectReport.query.filter(
-            DefectReport.record_time >= dt_start,
-            DefectReport.record_time <= dt_end,
+            DefectReport.record_time >= dt_year_start,
+            DefectReport.record_time <= dt_year_end,
             db.or_(DefectReport.status == "complete", DefectReport.status.is_(None)),
         )
-
         if bu and bu.upper() in Config.BU_OPTIONS:
-            count = base_query.filter(DefectReport.bu == bu.upper()).count()
+            base_query = base_query.filter(DefectReport.bu == bu.upper())
+
+        all_records = base_query.with_entities(DefectReport.record_time, DefectReport.bu).all()
+
+        # Distribute records into week buckets
+        week_bu_counts = {}  # (week_num, bu) -> count
+        for rec_time, rec_bu in all_records:
+            if rec_time is None or rec_bu is None:
+                continue
+            rec_date = rec_time.date() if hasattr(rec_time, "date") else rec_time
+            day_of_year = rec_date.timetuple().tm_yday
+            w_num = (day_of_year - 1) // 7 + 1
+            if 1 <= w_num <= show_weeks:
+                key = (w_num, rec_bu)
+                week_bu_counts[key] = week_bu_counts.get(key, 0) + 1
+
+        for w, _, _ in week_ranges:
             for b in Config.BU_OPTIONS:
-                bu_datasets[b].append(count if bu.upper() == b else 0)
-        else:
-            for b in Config.BU_OPTIONS:
-                bu_datasets[b].append(base_query.filter(DefectReport.bu == b).count())
+                bu_datasets[b].append(week_bu_counts.get((w, b), 0))
 
     datasets = []
     for b in Config.BU_OPTIONS:
@@ -152,6 +170,7 @@ def defect_class_distribution():
             pass
 
     query = query.filter(DefectReport.defect_class.isnot(None))
+    query = query.filter(db.or_(DefectReport.status == "complete", DefectReport.status.is_(None)))
     results = query.group_by(DefectReport.defect_class).order_by(func.count(DefectReport.id).desc()).all()
 
     labels = [r[0] for r in results]

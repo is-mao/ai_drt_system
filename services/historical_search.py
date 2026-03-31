@@ -1,6 +1,5 @@
 from models import db
 from models.defect_report import DefectReport
-from sqlalchemy import text
 
 
 def search_similar_failures(failure, station=None, bu=None, exclude_id=None, limit=5):

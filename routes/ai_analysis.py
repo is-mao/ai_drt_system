@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from routes.auth import login_required
-from services.ai_service import analyze_log_with_ai, beautify_root_cause_action
+from services.ai_service import analyze_log_with_ai, beautify_root_cause_action, translate_root_cause_action
 from services.historical_search import search_similar_failures
 from models.defect_report import DefectReport
 
@@ -56,6 +56,26 @@ def beautify():
     return jsonify(result)
 
 
+@ai_bp.route("/api/ai/translate", methods=["POST"])
+@login_required
+def translate():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    root_cause = data.get("root_cause", "").strip()
+    action = data.get("action", "").strip()
+    target_lang = data.get("target_lang", "").strip()
+
+    if not root_cause and not action:
+        return jsonify({"error": "Please provide Root Cause or Action text to translate"}), 400
+    if target_lang not in ("zh", "vi"):
+        return jsonify({"error": "Unsupported language. Use 'zh' or 'vi'."}), 400
+
+    result = translate_root_cause_action(root_cause, action, target_lang)
+    return jsonify(result)
+
+
 @ai_bp.route("/api/ai/search-similar", methods=["POST"])
 @login_required
 def search_similar():
@@ -94,10 +114,11 @@ def history_query():
         return jsonify({"error": "BU and Failure are required for history query"}), 400
 
     # Use TRIM + case-insensitive comparison for robust matching
-    # Search ALL records (including drafts) for history
+    # Only search completed defect records (exclude drafts)
     query = DefectReport.query.filter(
         func.lower(func.trim(DefectReport.bu)) == bu.lower(),
         func.lower(func.trim(DefectReport.failure)) == failure.lower(),
+        DefectReport.status != "draft",
     )
 
     if exclude_id:
