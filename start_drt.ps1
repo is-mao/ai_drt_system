@@ -172,13 +172,27 @@ Write-Log "Starting DRT System on port $Port..."
 Write-Log "Log file: $LogFile"
 Write-Log "Error log: $ErrorLogFile"
 
+$envVars = @{ "PORT" = "$Port"; "FLASK_DEBUG" = "0" }
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile -Encoding UTF8 | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+            $k, $v = $line -split "=", 2
+            $envVars[$k.Trim()] = $v.Trim()
+        }
+    }
+}
+foreach ($kv in $envVars.GetEnumerator()) {
+    [System.Environment]::SetEnvironmentVariable($kv.Key, $kv.Value, "Process")
+}
+
 $startInfo = @{
     FilePath     = $python
     ArgumentList = "`"$AppFile`""
     WorkingDirectory = $ScriptDir
     RedirectStandardOutput = $LogFile
     RedirectStandardError  = $ErrorLogFile
-    NoNewWindow  = $true
+    WindowStyle  = "Hidden"
     PassThru     = $true
 }
 
