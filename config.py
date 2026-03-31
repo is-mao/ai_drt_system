@@ -1,11 +1,12 @@
 import os
+import secrets
 from datetime import timedelta
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config:
-    SECRET_KEY = os.environ.get("DRT_SECRET_KEY", "drt-system-secret-key-change-in-production")
+    SECRET_KEY = os.environ.get("DRT_SECRET_KEY") or secrets.token_hex(32)
 
     # Database priority: DATABASE_URL > DRT_DB_TYPE
     # Render/cloud sets DATABASE_URL automatically; local uses DRT_DB_TYPE

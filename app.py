@@ -20,7 +20,7 @@ def create_app():
     app.config.from_object(Config)
     app.permanent_session_lifetime = Config.PERMANENT_SESSION_LIFETIME
 
-    CORS(app)
+    CORS(app, origins=os.environ.get("CORS_ORIGINS", "*").split(","))
     db.init_app(app)
 
     # Register blueprints
@@ -112,7 +112,7 @@ def _seed_defaults():
 app = create_app()
 
 if __name__ == "__main__":
-    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     port = int(os.environ.get("PORT", 5001))
     app.run(
         debug=debug,

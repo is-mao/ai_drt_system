@@ -31,7 +31,7 @@ pip install -r requirements.txt
 | `DRT_MYSQL_HOST` | localhost | MySQL 主机 |
 | `DRT_MYSQL_PORT` | 3306 | MySQL 端口 |
 | `DRT_MYSQL_USER` | root | MySQL 用户名 |
-| `DRT_MYSQL_PASSWORD` | root123 | MySQL 密码 |
+| `DRT_MYSQL_PASSWORD` | *(your password)* | MySQL 密码 |
 | `DRT_MYSQL_DB` | ai_drt_system | 数据库名 |
 | `GEMINI_API_KEY` | — | Gemini AI 密钥（参见 [GEMINI_API_KEY_Guide.md](GEMINI_API_KEY_Guide.md)） |
 
