@@ -5,6 +5,7 @@ from routes.auth import login_required
 from sqlalchemy import func
 from config import Config
 from datetime import datetime, timedelta
+from services.db_routing import get_user_db
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="")
 
@@ -21,7 +22,10 @@ def dashboard_summary():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
-    query = DefectReport.query.filter(db.or_(DefectReport.status == "complete", DefectReport.status.is_(None)))
+    udb = get_user_db()
+    query = udb.session.query(DefectReport).filter(
+        db.or_(DefectReport.status == "complete", DefectReport.status.is_(None))
+    )
 
     if date_from:
         try:
@@ -104,11 +108,12 @@ def weekly_trend():
         week_ranges.append((w, week_start, week_end_date))
 
     # Single query: fetch all counts grouped by week and BU
+    udb = get_user_db()
     if week_ranges:
         dt_year_start = datetime.combine(week_ranges[0][1], datetime.min.time())
         dt_year_end = datetime.combine(week_ranges[-1][2], datetime.min.time()).replace(hour=23, minute=59, second=59)
 
-        base_query = DefectReport.query.filter(
+        base_query = udb.session.query(DefectReport).filter(
             DefectReport.record_time >= dt_year_start,
             DefectReport.record_time <= dt_year_end,
             db.or_(DefectReport.status == "complete", DefectReport.status.is_(None)),
@@ -149,7 +154,8 @@ def defect_class_distribution():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
-    query = db.session.query(DefectReport.defect_class, func.count(DefectReport.id).label("count"))
+    udb = get_user_db()
+    query = udb.session.query(DefectReport.defect_class, func.count(DefectReport.id).label("count"))
 
     if bu and bu.upper() in Config.BU_OPTIONS:
         query = query.filter(DefectReport.bu == bu.upper())
@@ -186,7 +192,8 @@ def top_stations():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
-    query = db.session.query(DefectReport.station, func.count(DefectReport.id).label("count"))
+    udb = get_user_db()
+    query = udb.session.query(DefectReport.station, func.count(DefectReport.id).label("count"))
 
     if bu and bu.upper() in Config.BU_OPTIONS:
         query = query.filter(DefectReport.bu == bu.upper())
@@ -226,7 +233,8 @@ def top_servers():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
-    query = db.session.query(DefectReport.server, func.count(DefectReport.id).label("count"))
+    udb = get_user_db()
+    query = udb.session.query(DefectReport.server, func.count(DefectReport.id).label("count"))
 
     if bu and bu.upper() in Config.BU_OPTIONS:
         query = query.filter(DefectReport.bu == bu.upper())
@@ -266,7 +274,8 @@ def top_pcapn():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
-    query = db.session.query(DefectReport.pcap_n, func.count(DefectReport.id).label("count"))
+    udb = get_user_db()
+    query = udb.session.query(DefectReport.pcap_n, func.count(DefectReport.id).label("count"))
 
     if bu and bu.upper() in Config.BU_OPTIONS:
         query = query.filter(DefectReport.bu == bu.upper())

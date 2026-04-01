@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - AI DRT System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -15,252 +14,652 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #0d1442 0%, #1a237e 40%, #283593 70%, #3949ab 100%);
-            position: relative;
+            background: #0a0e1a;
             overflow: hidden;
+            transition: background 1.2s ease;
         }
 
-        body::before {
-            content: '';
+        /* ---- Page Layout ---- */
+        .page-layout {
+            position: relative;
+            z-index: 10;
+        }
+
+        /* ---- Lamp ---- */
+        .lamp-wrapper {
             position: absolute;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(92, 107, 192, 0.15), transparent 70%);
-            top: -100px;
-            right: -100px;
-            border-radius: 50%;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            top: 50%;
+            right: 100%;
+            transform: translateY(-50%);
+            margin-right: 20px;
         }
 
-        body::after {
-            content: '';
+        .lamp-ceiling {
+            width: 70px;
+            height: 6px;
+            background: #3a3a3a;
+            border-radius: 0 0 4px 4px;
+        }
+
+        .lamp-cord-top {
+            width: 2px;
+            height: 28px;
+            background: #666;
+        }
+
+        .lampshade-group {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .lampshade-top {
+            width: 0;
+            height: 0;
+            border-left: 55px solid transparent;
+            border-right: 55px solid transparent;
+            border-bottom: 44px solid #4a4a4a;
+            filter: brightness(0.9);
+            transition: filter 0.8s ease;
+        }
+
+        .lamp-on .lampshade-top { filter: brightness(1.3); }
+
+        .lampshade-rim {
+            width: 110px;
+            height: 5px;
+            background: #555;
+            border-radius: 0 0 4px 4px;
+        }
+
+        .lamp-bulb {
+            width: 16px;
+            height: 20px;
+            background: #333;
+            border-radius: 50% 50% 40% 40%;
+            margin-top: -2px;
+            transition: all 0.8s ease;
+            position: relative;
+        }
+
+        .lamp-on .lamp-bulb {
+            background: #fff8e1;
+            box-shadow: 0 0 25px 12px var(--glow-color, rgba(255,200,50,0.5)),
+                        0 0 60px 30px var(--glow-color-soft, rgba(255,200,50,0.15));
+        }
+
+        .light-cone {
             position: absolute;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(21, 101, 192, 0.1), transparent 70%);
-            bottom: -150px;
-            left: -150px;
-            border-radius: 50%;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 120px solid transparent;
+            border-right: 120px solid transparent;
+            border-top: 300px solid transparent;
+            opacity: 0;
+            transition: all 1s ease;
+            pointer-events: none;
         }
 
-        .login-card {
-            width: 100%;
-            max-width: 420px;
-            border: none;
+        .lamp-on .light-cone {
+            border-top-color: var(--cone-color, rgba(255,200,50,0.04));
+            opacity: 1;
+        }
+
+        .pull-cord-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            z-index: 25;
+        }
+
+        .pull-cord {
+            width: 2px;
+            height: 45px;
+            background: linear-gradient(to bottom, #888, #aaa);
+            transform-origin: top center;
+            transition: transform 0.3s ease;
+        }
+
+        .pull-cord-wrapper.pulling .pull-cord { transform: scaleY(1.7); }
+
+        .pull-cord-handle {
+            width: 14px;
+            height: 14px;
+            background: radial-gradient(circle at 40% 40%, #ddd, #888);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            transition: transform 0.3s ease;
+        }
+
+        .pull-cord-wrapper.pulling .pull-cord-handle { transform: translateY(30px); }
+
+        .pull-hint {
+            color: #555;
+            font-size: 0.7rem;
+            margin-top: 10px;
+            letter-spacing: 1px;
+            opacity: 0.7;
+            animation: hintPulse 2s ease infinite;
+            user-select: none;
+        }
+
+        .lamp-on .pull-hint { visibility: hidden; opacity: 0; }
+
+        @keyframes hintPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.9; }
+        }
+
+        /* ---- Card Container ---- */
+        .card-container {
+            width: 440px;
             border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
             position: relative;
             z-index: 10;
-            animation: slideUp 0.5s ease;
+            border: 1px solid rgba(255,255,255,0.06);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.8s ease 0.3s, box-shadow 0.8s ease 0.3s, border-color 0.8s ease;
         }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        .card-container.visible {
+            opacity: 1;
+            pointer-events: all;
         }
 
-        .login-header {
-            background: linear-gradient(135deg, #0d1442, #1a237e);
-            color: #ffffff;
+        .card-inner {
+            background: rgba(15, 20, 40, 0.92);
+            backdrop-filter: blur(20px);
             padding: 2.5rem 2rem 2rem;
-            text-align: center;
-            position: relative;
         }
 
-        .login-header::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 20px;
-            background: #fff;
-            border-radius: 20px 20px 0 0;
+        /* ---- Form Panels (login / register) ---- */
+        .form-panel {
+            transition: opacity 0.4s ease, transform 0.4s ease;
         }
 
-        .login-header .brand-icon {
-            width: 52px;
-            height: 52px;
-            background: rgba(255, 255, 255, 0.12);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1rem;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        .form-panel.hidden {
+            display: none;
         }
 
-        .login-header h1 {
-            font-size: 1.6rem;
+        .form-panel.fade-out {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        .card-title {
+            color: #e0e0e0;
+            font-size: 1.5rem;
             font-weight: 700;
-            margin-bottom: 0.25rem;
+            text-align: center;
+            margin-bottom: 0.3rem;
+            letter-spacing: 2px;
+        }
+
+        .card-subtitle {
+            color: #777;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.3rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: #999;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
             letter-spacing: 0.5px;
         }
 
-        .login-header p {
-            font-size: 0.85rem;
-            opacity: 0.7;
-            margin-bottom: 0;
-        }
-
-        .login-body {
-            padding: 2rem 2rem 2.5rem;
-            background-color: #ffffff;
-        }
-
-        .form-label {
-            font-weight: 600;
-            color: #37474f;
-            font-size: 0.82rem;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-
-        .form-control {
+        .form-group input {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 8px;
-            padding: 0.6rem 0.85rem;
-            border-color: #e0e0e0;
-            transition: all 0.2s ease;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
         }
 
-        .form-control:focus {
-            border-color: #5c6bc0;
-            box-shadow: 0 0 0 3px rgba(92, 107, 192, 0.15);
-        }
-
-        .input-icon-group {
+        .input-wrapper {
             position: relative;
         }
 
-        .input-icon-group .bi {
+        .input-wrapper input {
+            padding-right: 2.5rem;
+        }
+
+        .toggle-password {
             position: absolute;
-            left: 12px;
+            right: 10px;
             top: 50%;
             transform: translateY(-50%);
-            color: #9e9e9e;
-            font-size: 1rem;
-            z-index: 2;
-        }
-
-        .input-icon-group .form-control {
-            padding-left: 2.5rem;
-        }
-
-        .btn-login {
-            background: linear-gradient(135deg, #1a237e, #283593);
+            background: none;
             border: none;
-            font-weight: 600;
-            padding: 0.65rem;
-            font-size: 0.95rem;
+            color: #666;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 4px;
+            transition: color 0.2s;
+        }
+
+        .toggle-password:hover {
+            color: #aaa;
+        }
+
+        .form-group input::placeholder { color: #555; }
+
+        .form-group input:focus {
+            border-color: var(--glow-color, rgba(100,200,150,0.6));
+            box-shadow: 0 0 0 3px var(--glow-color-soft, rgba(100,200,150,0.1));
+            background: rgba(255,255,255,0.08);
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
             border-radius: 8px;
-            letter-spacing: 0.3px;
-            transition: all 0.2s ease;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #fff;
+            background: var(--btn-gradient, linear-gradient(135deg, #2a7a5a, #3ab07a));
+            margin-top: 0.5rem;
         }
 
-        .btn-login:hover {
-            background: linear-gradient(135deg, #0d1442, #1a237e);
-            box-shadow: 0 4px 15px rgba(26, 35, 126, 0.35);
-            transform: translateY(-1px);
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--glow-color-soft, rgba(100,200,150,0.3));
         }
 
-        .btn-login:active {
-            transform: translateY(0);
+        .btn-action:active { transform: translateY(0); }
+
+        .btn-action:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert-msg {
+            display: none;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
         }
 
         .alert-error {
-            display: none;
+            background: rgba(220, 53, 69, 0.15);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: #ef9a9a;
+        }
+
+        .alert-success {
+            background: rgba(40, 167, 69, 0.15);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #a5d6a7;
+        }
+
+        .card-footer {
+            text-align: center;
+            margin-top: 1.2rem;
+        }
+
+        .card-footer a {
+            color: #777;
+            text-decoration: none;
             font-size: 0.85rem;
-            border-radius: 8px;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .card-footer a:hover {
+            color: var(--glow-color, #aaa);
+        }
+
+        /* Ambient particles */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 2s ease;
+        }
+
+        .lamp-on .particle { opacity: 1; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); }
+            25% { transform: translateY(-20px) translateX(10px); }
+            50% { transform: translateY(-10px) translateX(-8px); }
+            75% { transform: translateY(-25px) translateX(5px); }
         }
     </style>
 </head>
 <body>
-    <div class="card login-card">
-        <div class="login-header">
-            <div class="brand-icon">
-                <i class="bi bi-robot" style="font-size: 1.5rem;"></i>
+
+    <div id="particles"></div>
+
+    <div class="page-layout">
+        <!-- Lamp -->
+        <div class="lamp-wrapper" id="lampWrapper">
+            <div class="lamp-ceiling"></div>
+            <div class="lamp-cord-top"></div>
+            <div class="lampshade-group">
+                <div class="lampshade-top"></div>
+                <div class="lampshade-rim"></div>
+                <div class="lamp-bulb">
+                    <div class="light-cone"></div>
+                </div>
             </div>
-            <h1>AI DRT System</h1>
-            <p>Defect Report Tracking</p>
+            <div class="pull-cord-wrapper" id="pullCord">
+                <div class="pull-cord"></div>
+                <div class="pull-cord-handle"></div>
+                <div class="pull-hint">PULL</div>
+            </div>
         </div>
-        <div class="login-body">
-            <div class="alert alert-danger alert-error" id="errorAlert" role="alert"></div>
-            <form id="loginForm" novalidate>
-                <div class="mb-3">
-                    <label for="username" class="form-label">Username</label>
-                    <div class="input-icon-group">
-                        <i class="bi bi-person"></i>
-                        <input type="text" class="form-control" id="username" name="username"
-                               placeholder="Enter your username" required autofocus>
+
+        <!-- Unified Card -->
+        <div class="card-container" id="cardContainer">
+        <div class="card-inner">
+
+            <!-- Login Panel -->
+            <div class="form-panel" id="loginPanel">
+                <div class="card-title">Welcome Back</div>
+                <div class="card-subtitle">Login for AI DRT System</div>
+                <div class="alert-msg alert-error" id="loginError"></div>
+                <form id="loginForm" novalidate>
+                    <div class="form-group">
+                        <label for="loginUser">Username</label>
+                        <input type="text" id="loginUser" placeholder="Enter your username" required autocomplete="username">
                     </div>
-                </div>
-                <div class="mb-4">
-                    <label for="password" class="form-label">Password</label>
-                    <div class="input-icon-group">
-                        <i class="bi bi-lock"></i>
-                        <input type="password" class="form-control" id="password" name="password"
-                               placeholder="Enter your password" required>
+                    <div class="form-group">
+                        <label for="loginPass">Password</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="loginPass" placeholder="Enter your password" required autocomplete="current-password">
+                            <button type="button" class="toggle-password" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+                        </div>
                     </div>
+                    <button type="submit" class="btn-action" id="loginBtn">Login</button>
+                </form>
+                <div class="card-footer">
+                    <a id="showRegister"><i class="bi bi-person-plus me-1"></i>Create an Account</a>
                 </div>
-                <button type="submit" class="btn btn-primary btn-login w-100" id="loginBtn">
-                    <i class="bi bi-box-arrow-in-right me-1"></i> Login
-                </button>
-            </form>
+            </div>
+
+            <!-- Register Panel -->
+            <div class="form-panel hidden" id="registerPanel">
+                <div class="card-title">Create Account</div>
+                <div class="card-subtitle">Register for AI DRT System</div>
+                <div class="alert-msg alert-error" id="regError"></div>
+                <div class="alert-msg alert-success" id="regSuccess"></div>
+                <form id="registerForm" novalidate>
+                    <div class="form-group">
+                        <label for="regUser">Username</label>
+                        <input type="text" id="regUser" placeholder="Choose a username (3-64 chars)" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="regPass">Password</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="regPass" placeholder="At least 8 characters" required autocomplete="new-password">
+                            <button type="button" class="toggle-password" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="regConfirm">Confirm Password</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="regConfirm" placeholder="Confirm your password" required autocomplete="new-password">
+                            <button type="button" class="toggle-password" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-action" id="regBtn">Register</button>
+                </form>
+                <div class="card-footer">
+                    <a id="showLogin"><i class="bi bi-arrow-left me-1"></i>Back to Login</a>
+                </div>
+            </div>
+
         </div>
     </div>
+    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const loginForm = document.getElementById('loginForm');
-        const errorAlert = document.getElementById('errorAlert');
-        const loginBtn = document.getElementById('loginBtn');
+    (function() {
+        // ---- Color Themes ----
+        var themes = [
+            { glow: 'rgba(100,220,160,0.55)', soft: 'rgba(100,220,160,0.12)', cone: 'rgba(100,220,160,0.035)', btn: 'linear-gradient(135deg,#1a6b4a,#2dbd7a)', border: 'rgba(100,220,160,0.25)', particle: '#64dca0', bg: '#0a1a14' },
+            { glow: 'rgba(100,180,255,0.55)', soft: 'rgba(100,180,255,0.12)', cone: 'rgba(100,180,255,0.035)', btn: 'linear-gradient(135deg,#1a4a8a,#3a8ae0)', border: 'rgba(100,180,255,0.25)', particle: '#64b4ff', bg: '#0a1220' },
+            { glow: 'rgba(255,180,100,0.55)', soft: 'rgba(255,180,100,0.12)', cone: 'rgba(255,180,100,0.035)', btn: 'linear-gradient(135deg,#8a5a1a,#e0a030)', border: 'rgba(255,180,100,0.25)', particle: '#ffb464', bg: '#1a140a' },
+            { glow: 'rgba(220,130,255,0.55)', soft: 'rgba(220,130,255,0.12)', cone: 'rgba(220,130,255,0.035)', btn: 'linear-gradient(135deg,#6a2a8a,#b050e0)', border: 'rgba(220,130,255,0.25)', particle: '#dc82ff', bg: '#150a1a' },
+            { glow: 'rgba(255,120,120,0.55)', soft: 'rgba(255,120,120,0.12)', cone: 'rgba(255,120,120,0.035)', btn: 'linear-gradient(135deg,#8a2a2a,#e04040)', border: 'rgba(255,120,120,0.25)', particle: '#ff7878', bg: '#1a0a0a' },
+            { glow: 'rgba(255,220,100,0.55)', soft: 'rgba(255,220,100,0.12)', cone: 'rgba(255,220,100,0.035)', btn: 'linear-gradient(135deg,#7a6a10,#e0c030)', border: 'rgba(255,220,100,0.25)', particle: '#ffdc64', bg: '#1a180a' },
+        ];
+        var themeIndex = Math.floor(Math.random() * themes.length);
+        var theme = themes[themeIndex];
 
-        loginForm.addEventListener('submit', async function (e) {
+        var particlesEl = document.getElementById('particles');
+
+        function applyTheme(t) {
+            var root = document.documentElement;
+            root.style.setProperty('--glow-color', t.glow);
+            root.style.setProperty('--glow-color-soft', t.soft);
+            root.style.setProperty('--cone-color', t.cone);
+            root.style.setProperty('--btn-gradient', t.btn);
+            var dots = particlesEl.querySelectorAll('.particle');
+            for (var i = 0; i < dots.length; i++) dots[i].style.background = t.particle;
+            try { localStorage.setItem('drt_theme_index', themeIndex); } catch(e) {}
+        }
+
+        applyTheme(theme);
+
+        var lampWrapper = document.getElementById('lampWrapper');
+        var cardContainer = document.getElementById('cardContainer');
+        var pullCord = document.getElementById('pullCord');
+        var isOn = false;
+
+        // Generate particles
+        for (var i = 0; i < 25; i++) {
+            var p = document.createElement('div');
+            p.className = 'particle';
+            var size = 2 + Math.random() * 4;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            p.style.background = theme.particle;
+            p.style.left = (10 + Math.random() * 80) + '%';
+            p.style.top = (10 + Math.random() * 80) + '%';
+            p.style.animation = 'float ' + (3 + Math.random() * 4) + 's ease-in-out ' + (Math.random() * 3) + 's infinite';
+            particlesEl.appendChild(p);
+        }
+
+        try { localStorage.setItem('drt_theme_index', themeIndex); } catch(e) {}
+
+        // Pull cord
+        pullCord.addEventListener('click', function() {
+            // Animate cord pull down then snap back
+            pullCord.classList.add('pulling');
+            setTimeout(function() {
+                pullCord.classList.remove('pulling');
+            }, 300);
+
+            isOn = !isOn;
+            if (isOn) {
+                themeIndex = (themeIndex + 1) % themes.length;
+                theme = themes[themeIndex];
+                applyTheme(theme);
+                lampWrapper.classList.add('lamp-on');
+                document.body.classList.add('lamp-on');
+                cardContainer.classList.add('visible');
+                cardContainer.style.borderColor = theme.border;
+                cardContainer.style.boxShadow = '0 20px 60px rgba(0,0,0,0.5), 0 0 40px ' + theme.soft;
+                document.body.style.background = theme.bg;
+                setTimeout(function() {
+                    var first = document.querySelector('.form-panel:not(.hidden) input');
+                    if (first) first.focus();
+                }, 600);
+            } else {
+                lampWrapper.classList.remove('lamp-on');
+                document.body.classList.remove('lamp-on');
+                cardContainer.classList.remove('visible');
+                cardContainer.style.boxShadow = 'none';
+                document.body.style.background = '#0a0e1a';
+            }
+        });
+
+        // ---- Panel Switching (smooth, no page reload) ----
+        var loginPanel = document.getElementById('loginPanel');
+        var registerPanel = document.getElementById('registerPanel');
+
+        function switchPanel(fromPanel, toPanel) {
+            fromPanel.classList.add('fade-out');
+            setTimeout(function() {
+                fromPanel.classList.add('hidden');
+                fromPanel.classList.remove('fade-out');
+                toPanel.classList.remove('hidden');
+                // Clear alerts
+                toPanel.querySelectorAll('.alert-msg').forEach(function(a) { a.style.display = 'none'; });
+                var first = toPanel.querySelector('input');
+                if (first) first.focus();
+            }, 350);
+        }
+
+        document.getElementById('showRegister').addEventListener('click', function(e) {
             e.preventDefault();
+            switchPanel(loginPanel, registerPanel);
+        });
 
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
+        document.getElementById('showLogin').addEventListener('click', function(e) {
+            e.preventDefault();
+            switchPanel(registerPanel, loginPanel);
+        });
+
+        // ---- Login Logic ----
+        var loginForm = document.getElementById('loginForm');
+        var loginError = document.getElementById('loginError');
+        var loginBtn = document.getElementById('loginBtn');
+
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var username = document.getElementById('loginUser').value.trim();
+            var password = document.getElementById('loginPass').value;
 
             if (!username || !password) {
-                showError('Please enter both username and password.');
+                showAlert(loginError, 'Please enter username and password.');
                 return;
             }
 
             loginBtn.disabled = true;
             loginBtn.textContent = 'Logging in...';
-            hideError();
+            loginError.style.display = 'none';
 
             try {
-                const response = await fetch('/api/auth/login', {
+                var response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username: username, password: password })
                 });
-
-                const data = await response.json();
-
+                var data = await response.json();
                 if (data.success) {
                     window.location.href = '/dashboard';
                 } else {
-                    showError(data.error || 'Login failed. Please try again.');
+                    showAlert(loginError, data.error || 'Login failed. Please try again.');
                 }
             } catch (err) {
-                showError('Unable to connect to the server. Please try again later.');
+                showAlert(loginError, 'Unable to connect to the server.');
             } finally {
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'Login';
             }
         });
 
-        function showError(message) {
-            errorAlert.textContent = message;
-            errorAlert.style.display = 'block';
+        // ---- Register Logic ----
+        var registerForm = document.getElementById('registerForm');
+        var regError = document.getElementById('regError');
+        var regSuccess = document.getElementById('regSuccess');
+        var regBtn = document.getElementById('regBtn');
+
+        registerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var username = document.getElementById('regUser').value.trim();
+            var password = document.getElementById('regPass').value;
+            var confirm = document.getElementById('regConfirm').value;
+
+            regError.style.display = 'none';
+            regSuccess.style.display = 'none';
+
+            if (!username || !password) {
+                showAlert(regError, 'Please fill in all fields.');
+                return;
+            }
+            if (password !== confirm) {
+                showAlert(regError, 'Passwords do not match.');
+                return;
+            }
+
+            regBtn.disabled = true;
+            regBtn.textContent = 'Registering...';
+
+            try {
+                var resp = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username, password: password })
+                });
+                var data = await resp.json();
+                if (data.success) {
+                    showAlert(regSuccess, data.message || 'Registration successful! Waiting for admin approval.');
+                    registerForm.reset();
+                } else {
+                    showAlert(regError, data.error || 'Registration failed.');
+                }
+            } catch (err) {
+                showAlert(regError, 'Unable to connect to server.');
+            } finally {
+                regBtn.disabled = false;
+                regBtn.textContent = 'Register';
+            }
+        });
+
+        function showAlert(el, msg) {
+            el.textContent = msg;
+            el.style.display = 'block';
         }
 
-        function hideError() {
-            errorAlert.style.display = 'none';
-        }
+        // ---- Password Toggle ----
+        document.querySelectorAll('.toggle-password').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var input = this.parentElement.querySelector('input');
+                var icon = this.querySelector('i');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.className = 'bi bi-eye-slash';
+                } else {
+                    input.type = 'password';
+                    icon.className = 'bi bi-eye';
+                }
+            });
+        });
+    })();
     </script>
 </body>
 </html>

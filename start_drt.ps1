@@ -9,6 +9,9 @@
 .PARAMETER Stop
     Stop the running DRT server.
 
+.PARAMETER Restart
+    Restart the DRT server (stop then start).
+
 .PARAMETER Status
     Check if the DRT server is running.
 
@@ -18,14 +21,29 @@
 .EXAMPLE
     .\start_drt.ps1              # Start server in background
     .\start_drt.ps1 -Stop        # Stop server
+    .\start_drt.ps1 -Restart     # Restart server
     .\start_drt.ps1 -Status      # Check status
+    .\start_drt.ps1 Restart      # Also works without dash
 #>
 
 param(
+    [Parameter(Position=0)]
+    [ValidateSet('Stop','Restart','Status','')]
+    [string]$Action,
     [switch]$Stop,
+    [switch]$Restart,
     [switch]$Status,
     [int]$Port = 5001
 )
+
+# Map positional $Action to switches
+if ($Action) {
+    switch ($Action) {
+        'Stop'    { $Stop    = $true }
+        'Restart' { $Restart = $true }
+        'Status'  { $Status  = $true }
+    }
+}
 
 $ErrorActionPreference = "Continue"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -118,6 +136,30 @@ if ($Stop) {
     exit 0
 }
 
+# --- Restart ---
+if ($Restart) {
+    $proc = Get-RunningProcess
+    if ($proc) {
+        Write-Log "Restarting DRT System (PID: $($proc.Id))..."
+        Stop-Process -Id $proc.Id -Force
+        if (Test-Path $PidFile) { Remove-Item $PidFile -Force }
+        # Wait for process to exit and port to be released
+        $waitMax = 10
+        for ($i = 0; $i -lt $waitMax; $i++) {
+            Start-Sleep -Seconds 1
+            $still = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
+            $portBusy = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+                Where-Object { $_.State -eq 'Listen' }
+            if (-not $still -and -not $portBusy) { break }
+            Write-Log "Waiting for port $Port to be released... ($($i+1)s)"
+        }
+        Write-Log "DRT System stopped. Starting again..."
+    } else {
+        Write-Log "DRT System was not running. Starting..."
+    }
+    # Fall through to the Start section below
+}
+
 # --- Start ---
 # Check if already running
 $existing = Get-RunningProcess
@@ -158,8 +200,9 @@ if ("$depCheck".Trim() -ne "OK") {
     }
 }
 
-# Check port availability
-$portInUse = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
+# Check port availability (ignore TIME_WAIT/CLOSE_WAIT which show PID 0)
+$portInUse = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+    Where-Object { $_.State -eq 'Listen' }
 if ($portInUse) {
     $usedBy = $portInUse | Select-Object -First 1
     Write-Host "ERROR: Port $Port is already in use (PID: $($usedBy.OwningProcess))." -ForegroundColor Red
@@ -215,6 +258,7 @@ if ($running) {
     Write-Host ""
     Write-Host "Commands:" -ForegroundColor White
     Write-Host "  .\start_drt.ps1 -Stop     Stop the server"
+    Write-Host "  .\start_drt.ps1 -Restart   Restart the server"
     Write-Host "  .\start_drt.ps1 -Status   Check status"
     Write-Host "  Get-Content $ErrorLogFile -Tail 20   View recent errors"
 } else {

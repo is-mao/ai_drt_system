@@ -10,6 +10,9 @@
         <div class="page-subtitle">Manage and track all defect records</div>
     </div>
     <div class="d-flex gap-2 align-items-center">
+        {% if session.get('role') == 'superadmin' %}
+        <button type="button" class="btn btn-sm btn-outline-danger d-none" id="batchDeleteBtn"><i class="bi bi-trash me-1"></i>Delete (<span id="selectedCount">0</span>)</button>
+        {% endif %}
         <a href="/defects/new" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i>New Record</a>
         <div class="btn-group">
             <button id="exportBtn" class="btn btn-primary btn-sm"><i class="bi bi-download me-1"></i>Export Excel</button>
@@ -87,6 +90,9 @@
         <table class="table table-hover data-table align-middle mb-0" id="defectTable">
             <thead>
                 <tr>
+                    {% if session.get('role') == 'superadmin' %}
+                    <th style="width:2.5%;" class="px-2 text-center"><input type="checkbox" class="form-check-input" id="selectAllDefects" title="Select All"></th>
+                    {% endif %}
                     <th class="sortable" data-sort="id" style="width:3%;"># <span class="sort-arrow"></span></th>
                     <th class="sortable" data-sort="bu" style="width:3.5%;">BU <span class="sort-arrow"></span></th>
                     <th class="sortable" data-sort="week_number" style="width:4%;">WK# <span class="sort-arrow"></span></th>
@@ -99,12 +105,15 @@
                     <th class="sortable" data-sort="defect_class" style="width:7%;">CLASS <span class="sort-arrow"></span></th>
                     <th style="width:10%;">ROOT CAUSE</th>
                     <th style="width:9%;">ACTION</th>
+                    {% if session.get('role') == 'superadmin' %}
+                    <th class="sortable" data-sort="created_by" style="width:5%;">BY <span class="sort-arrow"></span></th>
+                    {% endif %}
                     <th class="sortable" data-sort="updated_at" style="width:6%;">UPDATED <span class="sort-arrow"></span></th>
                     <th class="text-center" style="width:10.5%;">ACTIONS</th>
                 </tr>
             </thead>
             <tbody id="defectTableBody">
-                <tr><td colspan="14" class="text-center py-5 text-muted">
+                <tr><td colspan="{% if session.get('role') == 'superadmin' %}16{% else %}14{% endif %}" class="text-center py-5 text-muted">
                     <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Loading...
                 </td></tr>
             </tbody>
@@ -134,6 +143,8 @@
 {% block scripts %}
 <script>
 (function () {
+    var isSuperadmin = {{ 'true' if session.get('role') == 'superadmin' else 'false' }};
+    var colSpan = isSuperadmin ? 16 : 14;
     let currentPage = 1;
     let perPage = 25;
     let sortBy = 'updated_at';
@@ -169,14 +180,14 @@
         if (dt) params.set('date_to', dt);
         if (se) params.set('search', se);
 
-        tbody.innerHTML = '<tr><td colspan="14" class="text-center py-4 text-muted">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center py-4 text-muted">Loading...</td></tr>';
 
         try {
             const resp = await fetch('/api/defects?' + params.toString());
             const json = await resp.json();
 
             if (!json.data || json.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="14" class="text-center py-4 text-muted">No records found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center py-4 text-muted">No records found.</td></tr>';
                 totalCount.textContent = '0 records';
                 renderPagination(0, 1);
                 return;
@@ -237,6 +248,7 @@
             if (isRecent) classes.push('row-recent');
             var trClass = classes.join(' ');
             html += '<tr' + (trClass ? ' class="' + trClass + '"' : '') + ' data-id="' + r.id + '">' +
+                (isSuperadmin ? '<td class="px-2 text-center"><input type="checkbox" class="form-check-input defect-checkbox" data-id="' + r.id + '"></td>' : '') +
                 '<td class="text-muted' + (isRecent ? ' td-recent-id' : '') + '">' + r.id + '</td>' +
                 '<td><span class="badge" style="background-color:#283593; font-size:0.65rem;">' + escapeHtml(r.bu) + '</span></td>' +
                 '<td><span class="badge bg-light text-dark border" style="font-size:0.65rem;">' + escapeHtml(r.week_number) + '</span></td>' +
@@ -249,6 +261,7 @@
                 '<td>' + dcBadge(r.defect_class) + '</td>' +
                 '<td title="' + escapeHtml(r.root_cause || '') + '" style="color:#455a64;">' + textOrNotSet(r.root_cause, 20) + '</td>' +
                 '<td title="' + escapeHtml(r.action || '') + '" style="color:#455a64;">' + textOrNotSet(r.action, 20) + '</td>' +
+                (isSuperadmin ? '<td style="font-size:0.78rem;">' + (r.created_by ? '<span style="color:#1565c0;">' + escapeHtml(r.created_by) + '</span>' : '<span class="badge" style="background:#fff3cd; color:#856404; font-weight:500;">Not set</span>') + '</td>' : '') +
                 '<td style="color:#757575;">' + (r.updated_at ? r.updated_at.replace('T',' ').substring(5,16) : '-') + '</td>' +
                 '<td class="text-center" style="white-space:nowrap;">' +
                     '<a href="/defects/' + r.id + '" class="btn btn-outline-primary btn-sm me-1" style="padding:0.15rem 0.4rem; font-size:0.72rem;" title="View">View</a>' +
@@ -277,6 +290,69 @@
                     console.error(err);
                 }
             });
+        });
+
+        // Bind checkboxes (superadmin)
+        if (isSuperadmin) {
+            tbody.querySelectorAll('.defect-checkbox').forEach(function (cb) {
+                cb.addEventListener('change', updateBatchSelection);
+            });
+            document.getElementById('selectAllDefects').checked = false;
+            updateBatchSelection();
+        }
+    }
+
+    // ---- Batch Selection (superadmin) ----
+    function updateBatchSelection() {
+        if (!isSuperadmin) return;
+        var all = document.querySelectorAll('.defect-checkbox');
+        var checked = document.querySelectorAll('.defect-checkbox:checked');
+        var btn = document.getElementById('batchDeleteBtn');
+        var countEl = document.getElementById('selectedCount');
+        var selectAll = document.getElementById('selectAllDefects');
+
+        countEl.textContent = checked.length;
+        if (checked.length > 0) {
+            btn.classList.remove('d-none');
+        } else {
+            btn.classList.add('d-none');
+        }
+        selectAll.checked = all.length > 0 && all.length === checked.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+    }
+
+    if (isSuperadmin) {
+        document.getElementById('selectAllDefects').addEventListener('change', function () {
+            var checked = this.checked;
+            document.querySelectorAll('.defect-checkbox').forEach(function (cb) {
+                cb.checked = checked;
+            });
+            updateBatchSelection();
+        });
+
+        document.getElementById('batchDeleteBtn').addEventListener('click', async function () {
+            var ids = [];
+            document.querySelectorAll('.defect-checkbox:checked').forEach(function (cb) {
+                ids.push(parseInt(cb.getAttribute('data-id')));
+            });
+            if (!ids.length) return;
+            if (!await appConfirm('Delete ' + ids.length + ' selected record(s)? This cannot be undone.', 'Batch Delete')) return;
+            try {
+                var resp = await fetch('/api/defects/batch-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: ids })
+                });
+                var json = await resp.json();
+                if (json.success) {
+                    loadData();
+                } else {
+                    appAlert('Batch delete failed: ' + (json.error || 'Unknown error'), 'Error', 'danger');
+                }
+            } catch (err) {
+                appAlert('Error during batch delete.', 'Error', 'danger');
+                console.error(err);
+            }
         });
     }
 

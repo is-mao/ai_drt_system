@@ -52,6 +52,7 @@ python app.py
 ```powershell
 .\start_drt.ps1         # 后台启动，日志输出到 logs/ 目录
 .\start_drt.ps1 -Stop   # 停止服务
+.\start_drt.ps1 -Restart # 重启服务
 .\start_drt.ps1 -Status # 查看运行状态
 ```
 

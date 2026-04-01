@@ -90,12 +90,15 @@
                         <th class="sortable" data-sort="defect_class" style="width:7%;">CLASS <span class="sort-arrow"></span></th>
                         <th style="width:10%;">ROOT CAUSE</th>
                         <th style="width:9%;">ACTION</th>
+                        {% if session.get('role') == 'superadmin' %}
+                        <th class="sortable" data-sort="created_by" style="width:5%;">BY <span class="sort-arrow"></span></th>
+                        {% endif %}
                         <th class="sortable" data-sort="created_at" style="width:6%;">UPLOADED <span class="sort-arrow"></span></th>
                         <th class="text-center" style="width:9%;">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody id="draftsTableBody">
-                    <tr><td colspan="15" class="text-center text-muted py-5">
+                    <tr><td colspan="{% if session.get('role') == 'superadmin' %}16{% else %}15{% endif %}" class="text-center text-muted py-5">
                         <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Loading...
                     </td></tr>
                 </tbody>
@@ -124,6 +127,8 @@
 {% block scripts %}
 <script>
 (function () {
+    var isSuperadmin = {{ 'true' if session.get('role') == 'superadmin' else 'false' }};
+    var colSpan = isSuperadmin ? 16 : 15;
     function showToast(message, type) {
         const toastEl = document.getElementById('appToast');
         const toastMsg = document.getElementById('toastMessage');
@@ -199,7 +204,7 @@
         tbody.innerHTML = '';
 
         if (!data.data || !data.data.length) {
-            tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-5">' +
+            tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center text-muted py-5">' +
                 '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#bdbdbd" class="mb-2 d-block mx-auto" viewBox="0 0 16 16">' +
                 '<path d="M4.98 4a.5.5 0 0 0-.39.188L1.54 8H6a.5.5 0 0 1 .5.5 1.5 1.5 0 1 0 3 0A.5.5 0 0 1 10 8h4.46l-3.05-3.812A.5.5 0 0 0 11.02 4zm9.954 5H10.45a2.5 2.5 0 0 1-4.9 0H1.066l.32 2.562a.5.5 0 0 0 .497.438h12.234a.5.5 0 0 0 .496-.438zM3.809 3.563A1.5 1.5 0 0 1 4.981 3h6.038a1.5 1.5 0 0 1 1.172.563l3.7 4.625a.5.5 0 0 1 .105.374l-.39 3.124A1.5 1.5 0 0 1 14.117 13H1.883a1.5 1.5 0 0 1-1.489-1.314l-.39-3.124a.5.5 0 0 1 .106-.374z"/>' +
                 '</svg>No pending records.</td></tr>';
@@ -233,6 +238,7 @@
                 '<td>' + dcHtml + '</td>' +
                 '<td>' + rcHtml + '</td>' +
                 '<td>' + actHtml + '</td>' +
+                (isSuperadmin ? '<td style="font-size:0.78rem;">' + (r.created_by ? '<span style="color:#1565c0;">' + escapeHtml(r.created_by) + '</span>' : '<span class="badge" style="background:#fff3cd; color:#856404; font-weight:500;">Not set</span>') + '</td>' : '') +
                 '<td style="white-space:nowrap; color:#616161; font-size:0.85rem;">' + (r.created_at ? r.created_at.substring(5, 16).replace(' ', ' ') : '') + '</td>' +
                 '<td style="white-space:nowrap;" class="text-center">' +
                     '<a href="/defects/' + r.id + '/edit" class="btn btn-outline-success btn-sm me-1 action-btn">Edit</a>' +
@@ -287,6 +293,7 @@
             cb.addEventListener('change', updateSelectState);
         });
         document.getElementById('selectAllDrafts').checked = false;
+        updateSelectState();
     }
 
     function getSelectedIds() {

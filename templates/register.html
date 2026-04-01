@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - AI DRT System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: background 1s ease;
+        }
+
+        /* Ambient particles */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.4;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); }
+            25% { transform: translateY(-8px) translateX(4px); }
+            50% { transform: translateY(-4px) translateX(-3px); }
+            75% { transform: translateY(-10px) translateX(2px); }
+        }
+
+        /* Register Card */
+        .register-card {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+            border: 1px solid var(--border-color, rgba(100,220,160,0.25));
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px var(--glow-color-soft, rgba(100,220,160,0.12));
+            animation: cardAppear 0.6s ease;
+        }
+
+        @keyframes cardAppear {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .register-card-inner {
+            background: rgba(15, 20, 40, 0.92);
+            backdrop-filter: blur(20px);
+            padding: 2.5rem 2rem 2rem;
+        }
+
+        .register-title {
+            color: #e0e0e0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 0.3rem;
+            letter-spacing: 2px;
+        }
+
+        .register-subtitle {
+            color: #777;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: #999;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input::placeholder { color: #555; }
+
+        .form-group input:focus {
+            border-color: var(--glow-color, rgba(100,200,150,0.6));
+            box-shadow: 0 0 0 3px var(--glow-color-soft, rgba(100,200,150,0.1));
+            background: rgba(255,255,255,0.08);
+        }
+
+        .btn-register {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #fff;
+            background: var(--btn-gradient, linear-gradient(135deg, #2a7a5a, #3ab07a));
+            margin-top: 0.5rem;
+        }
+
+        .btn-register:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--glow-color-soft, rgba(100,200,150,0.3));
+        }
+
+        .btn-register:active { transform: translateY(0); }
+
+        .btn-register:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert-error {
+            display: none;
+            background: rgba(220, 53, 69, 0.15);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: #ef9a9a;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            display: none;
+            background: rgba(40, 167, 69, 0.15);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            color: #a5d6a7;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .register-footer {
+            text-align: center;
+            margin-top: 1.2rem;
+        }
+
+        .register-footer a {
+            color: #777;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.3s;
+        }
+
+        .register-footer a:hover {
+            color: var(--glow-color, #aaa);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient particles -->
+    <div id="particles"></div>
+
+    <!-- Register Card -->
+    <div class="register-card" id="registerCard">
+        <div class="register-card-inner">
+            <div class="register-title">Create Account</div>
+            <div class="register-subtitle">Register for AI DRT System</div>
+            <div class="alert-error" id="errorAlert"></div>
+            <div class="alert-success" id="successAlert"></div>
+            <form id="registerForm" novalidate>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Choose a username (3-64 chars)" required autofocus autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="At least 8 characters" required autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" placeholder="Confirm your password" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn-register" id="registerBtn">Register</button>
+            </form>
+            <div class="register-footer">
+                <a href="/login"><i class="bi bi-arrow-left me-1"></i>Back to Login</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        // Same themes as login page
+        var themes = [
+            { glow: 'rgba(100,220,160,0.55)', soft: 'rgba(100,220,160,0.12)', btn: 'linear-gradient(135deg,#1a6b4a,#2dbd7a)', border: 'rgba(100,220,160,0.25)', particle: '#64dca0', bg: '#0a1a14' },
+            { glow: 'rgba(100,180,255,0.55)', soft: 'rgba(100,180,255,0.12)', btn: 'linear-gradient(135deg,#1a4a8a,#3a8ae0)', border: 'rgba(100,180,255,0.25)', particle: '#64b4ff', bg: '#0a1220' },
+            { glow: 'rgba(255,180,100,0.55)', soft: 'rgba(255,180,100,0.12)', btn: 'linear-gradient(135deg,#8a5a1a,#e0a030)', border: 'rgba(255,180,100,0.25)', particle: '#ffb464', bg: '#1a140a' },
+            { glow: 'rgba(220,130,255,0.55)', soft: 'rgba(220,130,255,0.12)', btn: 'linear-gradient(135deg,#6a2a8a,#b050e0)', border: 'rgba(220,130,255,0.25)', particle: '#dc82ff', bg: '#150a1a' },
+            { glow: 'rgba(255,120,120,0.55)', soft: 'rgba(255,120,120,0.12)', btn: 'linear-gradient(135deg,#8a2a2a,#e04040)', border: 'rgba(255,120,120,0.25)', particle: '#ff7878', bg: '#1a0a0a' },
+            { glow: 'rgba(255,220,100,0.55)', soft: 'rgba(255,220,100,0.12)', btn: 'linear-gradient(135deg,#7a6a10,#e0c030)', border: 'rgba(255,220,100,0.25)', particle: '#ffdc64', bg: '#1a180a' },
+        ];
+
+        // Read theme from login page via localStorage, fallback to random
+        var idx = 0;
+        try { idx = parseInt(localStorage.getItem('drt_theme_index')) || 0; } catch(e) {}
+        if (idx < 0 || idx >= themes.length) idx = 0;
+        var theme = themes[idx];
+
+        // Apply theme
+        var root = document.documentElement;
+        root.style.setProperty('--glow-color', theme.glow);
+        root.style.setProperty('--glow-color-soft', theme.soft);
+        root.style.setProperty('--btn-gradient', theme.btn);
+        root.style.setProperty('--border-color', theme.border);
+        document.body.style.background = theme.bg;
+
+        // Generate particles
+        var particlesEl = document.getElementById('particles');
+        for (var i = 0; i < 20; i++) {
+            var p = document.createElement('div');
+            p.className = 'particle';
+            var size = 2 + Math.random() * 4;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            p.style.background = theme.particle;
+            p.style.left = (10 + Math.random() * 80) + '%';
+            p.style.top = (10 + Math.random() * 80) + '%';
+            p.style.animation = 'float ' + (3 + Math.random() * 4) + 's ease-in-out ' + (Math.random() * 3) + 's infinite';
+            particlesEl.appendChild(p);
+        }
+
+        // ---- Register Logic ----
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var username = document.getElementById('username').value.trim();
+            var password = document.getElementById('password').value;
+            var confirm = document.getElementById('confirmPassword').value;
+            var errorAlert = document.getElementById('errorAlert');
+            var successAlert = document.getElementById('successAlert');
+            var btn = document.getElementById('registerBtn');
+
+            errorAlert.style.display = 'none';
+            successAlert.style.display = 'none';
+
+            if (!username || !password) {
+                errorAlert.textContent = 'Please fill in all fields.';
+                errorAlert.style.display = 'block';
+                return;
+            }
+            if (password !== confirm) {
+                errorAlert.textContent = 'Passwords do not match.';
+                errorAlert.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Registering...';
+
+            try {
+                var resp = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: username, password: password})
+                });
+                var data = await resp.json();
+                if (data.success) {
+                    successAlert.textContent = data.message || 'Registration successful! Waiting for admin approval.';
+                    successAlert.style.display = 'block';
+                    document.getElementById('registerForm').reset();
+                } else {
+                    errorAlert.textContent = data.error || 'Registration failed.';
+                    errorAlert.style.display = 'block';
+                }
+            } catch (err) {
+                errorAlert.textContent = 'Unable to connect to server.';
+                errorAlert.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Register';
+            }
+        });
+    })();
+    </script>
+</body>
+</html>

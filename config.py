@@ -8,17 +8,12 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 class Config:
     SECRET_KEY = os.environ.get("DRT_SECRET_KEY") or secrets.token_hex(32)
 
-    # Database priority: DATABASE_URL > DRT_DB_TYPE
-    # Render/cloud sets DATABASE_URL automatically; local uses DRT_DB_TYPE
+    # Primary DB: MySQL (ismao's local). SQLite/Remote for other users via db_routing.
     DATABASE_URL = os.environ.get("DATABASE_URL", "")
-    DB_TYPE = os.environ.get("DRT_DB_TYPE", "sqlite").lower()
+    SQLITE_URI = "sqlite:///" + os.path.join(BASE_DIR, "drt_system.db")
+    DB_TYPE = os.environ.get("DRT_DB_TYPE", "mysql").lower()
 
-    if DATABASE_URL:
-        # Render provides postgres://... but SQLAlchemy needs postgresql://...
-        if DATABASE_URL.startswith("postgres://"):
-            DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-        SQLALCHEMY_DATABASE_URI = DATABASE_URL
-    elif DB_TYPE == "mysql":
+    if DB_TYPE == "mysql":
         MYSQL_HOST = os.environ.get("DRT_MYSQL_HOST", "localhost")
         MYSQL_PORT = int(os.environ.get("DRT_MYSQL_PORT", 3306))
         MYSQL_USER = os.environ.get("DRT_MYSQL_USER", "")

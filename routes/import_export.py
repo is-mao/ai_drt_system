@@ -1,8 +1,9 @@
 from config import Config
 from models import db
 from models.defect_report import DefectReport
-from flask import Blueprint, request, jsonify, render_template, send_file
+from flask import Blueprint, request, jsonify, render_template, send_file, session
 from routes.auth import login_required
+from services.db_routing import get_user_db, sync_to_remote
 from datetime import datetime, timedelta
 from io import BytesIO
 import openpyxl
@@ -189,7 +190,7 @@ def import_excel():
             rt = row_data.get("record_time")
             if sn and rt:
                 sn_str = str(sn).strip()
-                existing = DefectReport.query.filter_by(sn=sn_str, record_time=rt).first()
+                existing = udb.session.query(DefectReport).filter_by(sn=sn_str, record_time=rt).first()
                 if existing:
                     skipped += 1
                     continue
@@ -230,17 +231,18 @@ def import_excel():
                 pn=row_data.get("pn"),
                 component_sn=row_data.get("component_sn"),
                 log_content=row_data.get("log_content"),
+                created_by=session.get("username", ""),
             )
-            db.session.add(report)
+            udb.session.add(report)
             imported += 1
 
         except Exception as e:
             errors.append(f"Row {row_idx}: {str(e)}")
 
     try:
-        db.session.commit()
+        udb.session.commit()
     except Exception as e:
-        db.session.rollback()
+        udb.session.rollback()
         return (
             jsonify(
                 {
@@ -253,6 +255,15 @@ def import_excel():
             ),
             500,
         )
+
+    # Dual-write: sync imported records to remote for superadmin
+    if udb.should_sync_remote:
+        try:
+            records = udb.session.query(DefectReport).order_by(DefectReport.id.desc()).limit(imported).all()
+            for r in records:
+                sync_to_remote(r.to_dict(include_log=True))
+        except Exception:
+            pass
 
     return jsonify({"success": True, "imported": imported, "skipped": skipped, "errors": errors})
 
@@ -268,7 +279,10 @@ def export_excel():
     defect_value = request.args.get("defect_value")
     search = request.args.get("search")
 
-    query = DefectReport.query.filter(db.or_(DefectReport.status == "complete", DefectReport.status.is_(None)))
+    udb = get_user_db()
+    query = udb.session.query(DefectReport).filter(
+        db.or_(DefectReport.status == "complete", DefectReport.status.is_(None))
+    )
 
     if bu and bu.upper() in Config.BU_OPTIONS:
         query = query.filter(DefectReport.bu == bu.upper())
@@ -543,6 +557,8 @@ def import_cesium():
     if not file.filename or not file.filename.endswith(".xlsx"):
         return jsonify({"success": False, "error": "Only .xlsx files are accepted"}), 400
 
+    udb = get_user_db()
+
     try:
         file_bytes = BytesIO(file.read())
         # Try openpyxl first, fall back to zipfile+XML if styles parsing fails
@@ -632,7 +648,7 @@ def import_cesium():
             sn = row_data.get("sn")
             rt = row_data.get("record_time")
             if sn and rt:
-                existing = DefectReport.query.filter_by(sn=sn, record_time=rt).first()
+                existing = udb.session.query(DefectReport).filter_by(sn=sn, record_time=rt).first()
                 if existing:
                     skipped += 1
                     continue
@@ -650,17 +666,18 @@ def import_cesium():
                 server=row_data.get("server"),
                 week_number=week_number,
                 status="draft",
+                created_by=session.get("username", ""),
             )
-            db.session.add(report)
+            udb.session.add(report)
             imported += 1
 
         except Exception as e:
             errors.append(f"Row {row_idx + 2}: {str(e)}")
 
     try:
-        db.session.commit()
+        udb.session.commit()
     except Exception as e:
-        db.session.rollback()
+        udb.session.rollback()
         return (
             jsonify(
                 {
@@ -673,6 +690,15 @@ def import_cesium():
             ),
             500,
         )
+
+    # Dual-write: sync Cesium imported records to remote for superadmin
+    if udb.should_sync_remote:
+        try:
+            records = udb.session.query(DefectReport).order_by(DefectReport.id.desc()).limit(imported).all()
+            for r in records:
+                sync_to_remote(r.to_dict(include_log=True))
+        except Exception:
+            pass
 
     return jsonify({"success": True, "imported": imported, "skipped": skipped, "errors": errors})
 
@@ -698,7 +724,8 @@ def api_draft_records():
     sort_by = request.args.get("sort_by", "created_at").strip()
     sort_dir = request.args.get("sort_dir", "desc").strip()
 
-    query = DefectReport.query.filter_by(status="draft")
+    udb = get_user_db()
+    query = udb.session.query(DefectReport).filter_by(status="draft")
     if bu:
         query = query.filter(DefectReport.bu == bu)
     if station:
@@ -746,6 +773,7 @@ def api_draft_records():
         "failure",
         "defect_class",
         "defect_value",
+        "created_by",
         "created_at",
     }
     if sort_by not in allowed_sort:
@@ -774,7 +802,8 @@ def api_draft_records():
 @login_required
 def api_draft_complete(id):
     """Mark a draft record as complete (after filling in required fields)."""
-    record = DefectReport.query.get_or_404(id)
+    udb = get_user_db()
+    record = udb.get_or_404(DefectReport, id)
     if record.status != "draft":
         return jsonify({"success": False, "error": "Record is not a draft"}), 400
 
@@ -828,7 +857,7 @@ def api_draft_complete(id):
     if missing:
         return jsonify({"success": False, "error": f"Missing required fields: {', '.join(missing)}"}), 400
 
-    db.session.commit()
+    udb.session.commit()
 
     return jsonify({"success": True, "data": record.to_dict(include_log=True)})
 
@@ -837,11 +866,12 @@ def api_draft_complete(id):
 @login_required
 def api_draft_delete(id):
     """Delete a draft record."""
-    record = DefectReport.query.get_or_404(id)
+    udb = get_user_db()
+    record = udb.get_or_404(DefectReport, id)
     if record.status != "draft":
         return jsonify({"success": False, "error": "Record is not a draft"}), 400
-    db.session.delete(record)
-    db.session.commit()
+    udb.session.delete(record)
+    udb.session.commit()
     return jsonify({"success": True})
 
 
@@ -857,9 +887,12 @@ def api_draft_batch_delete():
     if not ids:
         return jsonify({"success": False, "error": "Invalid IDs"}), 400
 
-    deleted = DefectReport.query.filter(DefectReport.id.in_(ids), DefectReport.status == "draft").delete(
-        synchronize_session=False
+    udb = get_user_db()
+    deleted = (
+        udb.session.query(DefectReport)
+        .filter(DefectReport.id.in_(ids), DefectReport.status == "draft")
+        .delete(synchronize_session=False)
     )
-    db.session.commit()
+    udb.session.commit()
 
     return jsonify({"success": True, "deleted": deleted})

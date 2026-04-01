@@ -5,6 +5,7 @@ from models import db
 from models.defect_report import DefectReport
 from routes.auth import login_required
 from config import Config
+from services.db_routing import get_user_db, sync_to_remote, sync_update_to_remote, sync_delete_to_remote
 
 defects_bp = Blueprint("defects", __name__, url_prefix="")
 
@@ -46,7 +47,8 @@ def defect_new():
 @defects_bp.route("/defects/<int:id>/edit")
 @login_required
 def defect_edit(id):
-    record = DefectReport.query.get_or_404(id)
+    udb = get_user_db()
+    record = udb.get_or_404(DefectReport, id)
     return render_template(
         "defect_form.html",
         mode="edit",
@@ -60,7 +62,8 @@ def defect_edit(id):
 @defects_bp.route("/defects/<int:id>")
 @login_required
 def defect_detail(id):
-    record = DefectReport.query.get_or_404(id)
+    udb = get_user_db()
+    record = udb.get_or_404(DefectReport, id)
     return render_template(
         "defect_detail.html",
         record=record.to_dict(include_log=True),
@@ -96,7 +99,10 @@ def api_defect_list():
     sort_by = request.args.get("sort_by", "record_time").strip()
     sort_dir = request.args.get("sort_dir", "desc").strip()
 
-    query = DefectReport.query.filter(db.or_(DefectReport.status == "complete", DefectReport.status.is_(None)))
+    udb = get_user_db()
+    query = udb.session.query(DefectReport).filter(
+        db.or_(DefectReport.status == "complete", DefectReport.status.is_(None))
+    )
 
     # Apply filters
     if bu:
@@ -146,6 +152,7 @@ def api_defect_list():
         "failure",
         "defect_class",
         "defect_value",
+        "created_by",
         "created_at",
         "updated_at",
     }
@@ -175,7 +182,8 @@ def api_defect_list():
 @defects_bp.route("/api/defects/<int:id>", methods=["GET"])
 @login_required
 def api_defect_get(id):
-    record = DefectReport.query.get_or_404(id)
+    udb = get_user_db()
+    record = udb.get_or_404(DefectReport, id)
     return jsonify(record.to_dict(include_log=True))
 
 
@@ -208,8 +216,13 @@ def api_defect_create():
         created_by=session.get("username", ""),
     )
 
-    db.session.add(record)
-    db.session.commit()
+    udb = get_user_db()
+    udb.session.add(record)
+    udb.session.commit()
+
+    # Dual-write: sync to remote for superadmin
+    if udb.should_sync_remote:
+        sync_to_remote(record.to_dict(include_log=True))
 
     return jsonify({"success": True, "id": record.id, "data": record.to_dict(include_log=True)}), 201
 
@@ -217,7 +230,8 @@ def api_defect_create():
 @defects_bp.route("/api/defects/<int:id>", methods=["PUT"])
 @login_required
 def api_defect_update(id):
-    record = DefectReport.query.get_or_404(id)
+    udb = get_user_db()
+    record = udb.get_or_404(DefectReport, id)
     data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid request body"}), 400
@@ -276,7 +290,11 @@ def api_defect_update(id):
             )
         record.status = "complete"
 
-    db.session.commit()
+    udb.session.commit()
+
+    # Dual-write: sync update to remote for superadmin
+    if udb.should_sync_remote:
+        sync_update_to_remote(record.id, record.to_dict(include_log=True))
 
     return jsonify({"success": True, "data": record.to_dict(include_log=True)})
 
@@ -284,10 +302,43 @@ def api_defect_update(id):
 @defects_bp.route("/api/defects/<int:id>", methods=["DELETE"])
 @login_required
 def api_defect_delete(id):
-    record = DefectReport.query.get_or_404(id)
-    db.session.delete(record)
-    db.session.commit()
+    udb = get_user_db()
+    record = udb.get_or_404(DefectReport, id)
+    udb.session.delete(record)
+    udb.session.commit()
+
+    # Dual-write: sync delete to remote for superadmin
+    if udb.should_sync_remote:
+        sync_delete_to_remote(id)
+
     return jsonify({"success": True, "message": f"Record #{id} deleted"})
+
+
+@defects_bp.route("/api/defects/batch-delete", methods=["POST"])
+@login_required
+def api_defect_batch_delete():
+    """Batch delete defect records by IDs (superadmin only)."""
+    if session.get("role") != "superadmin":
+        return jsonify({"success": False, "error": "Permission denied"}), 403
+
+    data = request.get_json()
+    if not data or not isinstance(data.get("ids"), list) or not data["ids"]:
+        return jsonify({"success": False, "error": "No IDs provided"}), 400
+
+    ids = [int(i) for i in data["ids"] if str(i).isdigit()]
+    if not ids:
+        return jsonify({"success": False, "error": "Invalid IDs"}), 400
+
+    udb = get_user_db()
+    deleted = udb.session.query(DefectReport).filter(DefectReport.id.in_(ids)).delete(synchronize_session=False)
+    udb.session.commit()
+
+    # Sync deletes to remote
+    if udb.should_sync_remote:
+        for rid in ids:
+            sync_delete_to_remote(rid)
+
+    return jsonify({"success": True, "deleted": deleted})
 
 
 # ---------------------------------------------------------------------------

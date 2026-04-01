@@ -8,6 +8,34 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/static/css/style.css">
+    <script>
+    // Apply login theme colors to main UI
+    (function() {
+        var themes = [
+            { accent: '#2dbd7a', accentLight: '#e6f9f0', navGrad: 'linear-gradient(90deg, #0a2018 0%, #0f3d2a 50%, #1a6b4a 100%)' },
+            { accent: '#3a8ae0', accentLight: '#e3f0fd', navGrad: 'linear-gradient(90deg, #0a1230 0%, #142d5c 50%, #1a4a8a 100%)' },
+            { accent: '#e0a030', accentLight: '#fdf5e3', navGrad: 'linear-gradient(90deg, #1a140a 0%, #4a3510 50%, #8a5a1a 100%)' },
+            { accent: '#b050e0', accentLight: '#f5e8fd', navGrad: 'linear-gradient(90deg, #150a20 0%, #3a1558 50%, #6a2a8a 100%)' },
+            { accent: '#e04040', accentLight: '#fde8e8', navGrad: 'linear-gradient(90deg, #1a0a0a 0%, #5c1414 50%, #8a2a2a 100%)' },
+            { accent: '#d4b020', accentLight: '#fdf8e3', navGrad: 'linear-gradient(90deg, #1a180a 0%, #4a4010 50%, #7a6a10 100%)' },
+        ];
+        try {
+            var idx = parseInt(localStorage.getItem('drt_theme_index'));
+            if (!isNaN(idx) && idx >= 0 && idx < themes.length) {
+                var t = themes[idx];
+                var r = document.documentElement.style;
+                r.setProperty('--accent', t.accent);
+                r.setProperty('--accent-light', t.accentLight);
+                r.setProperty('--drt-nav-gradient', t.navGrad);
+            }
+        } catch(e) {}
+    })();
+    </script>
+    <style>
+        .top-navbar {
+            background: var(--drt-nav-gradient, linear-gradient(90deg, #0d1442 0%, #1a237e 50%, #283593 100%)) !important;
+        }
+    </style>
 </head>
 <body>
     <!-- Top Navigation Bar -->
@@ -43,8 +71,31 @@
                 <i class="bi bi-gear"></i>
                 <span>Settings</span>
             </a>
+            {% if session.get('role') == 'superadmin' %}
+            <a class="nav-link" href="/admin/users">
+                <i class="bi bi-people"></i>
+                <span>Users</span>
+            </a>
+            {% endif %}
         </div>
         <div class="navbar-right">
+            {% if session.get('role') == 'superadmin' %}
+            <span class="badge bg-info text-dark me-2" style="font-size:0.7rem;">
+                <i class="bi bi-database"></i> MySQL + Remote
+            </span>
+            {% elif session.get('db_access') == 'both' %}
+            <span class="badge bg-info text-dark me-2" style="font-size:0.7rem;">
+                <i class="bi bi-hdd"></i> SQLite + Remote
+            </span>
+            {% elif session.get('db_access') == 'remote' %}
+            <span class="badge bg-success me-2" style="font-size:0.7rem;">
+                <i class="bi bi-cloud"></i> Remote
+            </span>
+            {% else %}
+            <span class="badge bg-secondary me-2" style="font-size:0.7rem;">
+                <i class="bi bi-hdd"></i> SQLite
+            </span>
+            {% endif %}
             <span class="navbar-user">
                 <i class="bi bi-person-circle"></i>
                 {{ session.get('username', '') }}

@@ -98,11 +98,18 @@ def test_ai():
         api_key = SystemConfig.get_value("gemini_api_key") or ""
         key_source = "database"
     if not api_key:
-        return jsonify({"success": False, "message": "No API key configured. Please enter a key first.",
-                        "debug": "No key found in input, .env, or database"})
+        return jsonify(
+            {
+                "success": False,
+                "message": "No API key configured. Please enter a key first.",
+                "debug": "No key found in input, .env, or database",
+            }
+        )
 
     key_count = len([k for k in api_key.split(",") if k.strip()])
-    debug_info = f"source={key_source}, keys={key_count}, first_key={api_key[:8]}...{api_key.split(',')[0].strip()[-4:]}"
+    debug_info = (
+        f"source={key_source}, keys={key_count}, first_key={api_key[:8]}...{api_key.split(',')[0].strip()[-4:]}"
+    )
 
     success, message = test_ai_connection(api_key)
     return jsonify({"success": success, "message": message, "debug": debug_info})

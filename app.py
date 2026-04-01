@@ -48,6 +48,18 @@ def create_app():
         _migrate_columns(app)
         _seed_defaults()
 
+        # Initialize tables in SQLite and Remote databases
+        from services.db_routing import init_all_tables, cleanup_user_db
+
+        init_all_tables()
+
+    # Cleanup non-primary DB sessions after each request
+    @app.teardown_appcontext
+    def _teardown_user_db(exc):
+        from services.db_routing import cleanup_user_db
+
+        cleanup_user_db(exc)
+
     # CLI commands
     @app.cli.command("create-admin")
     @click.option("--username", default="admin", help="Admin username")
@@ -72,22 +84,40 @@ def _migrate_columns(app):
     """Auto-add missing columns to existing tables."""
     from sqlalchemy import text, inspect
 
-    ALLOWED_COLUMNS = {"sequence_log": "TEXT", "buffer_log": "TEXT"}
+    MIGRATIONS = {
+        "defect_reports": {"sequence_log": "TEXT", "buffer_log": "TEXT"},
+        "users": {"is_active": "BOOLEAN", "db_access": "VARCHAR(20)"},
+    }
 
     try:
         inspector = inspect(db.engine)
-        existing = {col["name"] for col in inspector.get_columns("defect_reports")}
-        dialect = db.engine.dialect.name  # sqlite, mysql, postgresql
+        dialect = db.engine.dialect.name
         with db.engine.connect() as conn:
-            for col_name, col_type in ALLOWED_COLUMNS.items():
-                if col_name not in existing:
-                    # col_name and col_type are from hardcoded allowlist only
-                    if dialect == "sqlite":
-                        conn.execute(text(f"ALTER TABLE defect_reports ADD COLUMN {col_name} {col_type}"))
-                    else:
-                        conn.execute(text(f"ALTER TABLE defect_reports ADD COLUMN {col_name} {col_type} NULL"))
-                    conn.commit()
-                    app.logger.info(f"Added missing column: {col_name}")
+            for table, columns in MIGRATIONS.items():
+                try:
+                    existing = {col["name"] for col in inspector.get_columns(table)}
+                except Exception:
+                    continue
+                for col_name, col_type in columns.items():
+                    if col_name not in existing:
+                        if dialect == "sqlite":
+                            if col_type == "BOOLEAN":
+                                default = " DEFAULT 1"
+                            elif col_type == "VARCHAR(20)":
+                                default = " DEFAULT 'sqlite'"
+                            else:
+                                default = ""
+                            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}{default}"))
+                        else:
+                            if col_type == "BOOLEAN":
+                                default = " DEFAULT TRUE"
+                            elif col_type == "VARCHAR(20)":
+                                default = " DEFAULT 'sqlite'"
+                            else:
+                                default = " NULL"
+                            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}{default}"))
+                        conn.commit()
+                        app.logger.info(f"Added missing column: {table}.{col_name}")
     except Exception as e:
         app.logger.warning(f"Column migration skipped: {e}")
 
@@ -96,12 +126,23 @@ def _seed_defaults():
     from models.user import User
     from models.system_config import SystemConfig
 
-    # Seed default admin if no users exist
-    if User.query.count() == 0:
-        admin = User(username="admin", role="admin")
+    # Seed superadmin if not exists
+    if not User.query.filter_by(username="ismao").first():
+        sa = User(username="ismao", role="superadmin", is_active=True)
+        sa.set_password("maomao123")
+        db.session.add(sa)
+        db.session.commit()
+
+    # Seed default admin if no other users exist (besides superadmin)
+    if User.query.filter(User.role != "superadmin").count() == 0:
+        admin = User(username="admin", role="admin", is_active=True)
         admin.set_password("admin123")
         db.session.add(admin)
         db.session.commit()
+
+    # Ensure existing users without is_active flag are set to active
+    User.query.filter(User.is_active.is_(None)).update({"is_active": True})
+    db.session.commit()
 
     # Seed default config
     if not db.session.get(SystemConfig, "gemini_api_key"):
