@@ -116,6 +116,29 @@ def api_login():
         now = datetime.now()
         update_user_login_remote(remote_user["id"], now)
 
+        # Sync remote user data to local SQLite so future local fallback has correct permissions
+        try:
+            local_user = User.query.filter_by(username=username).first()
+            if local_user:
+                local_user.role = remote_user["role"]
+                local_user.db_access = remote_user.get("db_access", "sqlite")
+                local_user.is_active = bool(remote_user.get("is_active", True))
+                local_user.last_login = now
+                db.session.commit()
+            else:
+                local_user = User(
+                    username=remote_user["username"],
+                    role=remote_user["role"],
+                    db_access=remote_user.get("db_access", "sqlite"),
+                    is_active=bool(remote_user.get("is_active", True)),
+                    password_hash=remote_user["password_hash"],
+                )
+                local_user.last_login = now
+                db.session.add(local_user)
+                db.session.commit()
+        except Exception:
+            pass
+
         session.permanent = True
         session["user_id"] = remote_user["id"]
         session["username"] = remote_user["username"]

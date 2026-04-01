@@ -33,11 +33,30 @@ def _get_sqlite_engine():
     return _sqlite_engine, _sqlite_session_factory
 
 
+def reset_remote_engine():
+    """Reset the cached remote engine so it will be re-initialized on next use."""
+    global _remote_engine, _remote_session_factory
+    if _remote_engine is not None:
+        try:
+            _remote_engine.dispose()
+        except Exception:
+            pass
+    _remote_engine = None
+    _remote_session_factory = None
+
+
 def _get_remote_engine():
     global _remote_engine, _remote_session_factory
     if _remote_engine is not None:
         return _remote_engine, _remote_session_factory
     remote_url = os.environ.get("DATABASE_URL", "")
+    if not remote_url:
+        # Fallback: check system_config table for database_url
+        try:
+            from models.system_config import SystemConfig
+            remote_url = SystemConfig.get_value("database_url", "") or ""
+        except Exception:
+            pass
     if not remote_url:
         return None, None
     if remote_url.startswith("postgres://"):
