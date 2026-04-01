@@ -194,6 +194,117 @@ def sync_delete_to_remote(report_id):
         logger.warning("Remote sync failed (session): %s", e)
 
 
+# ---------------------------------------------------------------------------
+# User sync helpers (sync user table to Remote for multi-machine auth)
+# ---------------------------------------------------------------------------
+
+
+def sync_user_to_remote(user_dict):
+    """Upsert a user record to the remote database. Never raises."""
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return
+    try:
+        sess = _remote_session_factory()
+        try:
+            # Ensure is_active is bool (MySQL returns int, PostgreSQL needs bool)
+            if "is_active" in user_dict:
+                user_dict["is_active"] = bool(user_dict["is_active"])
+            # Check if user exists
+            row = sess.execute(
+                text("SELECT id FROM users WHERE id = :_id"),
+                {"_id": user_dict["id"]},
+            ).fetchone()
+            cols = [k for k in user_dict if k != "id" and user_dict[k] is not None]
+            if row:
+                set_clause = ", ".join(f"{c} = :{c}" for c in cols)
+                params = {c: user_dict[c] for c in cols}
+                params["_id"] = user_dict["id"]
+                sess.execute(text(f"UPDATE users SET {set_clause} WHERE id = :_id"), params)
+            else:
+                all_cols = ["id"] + cols
+                col_names = ", ".join(all_cols)
+                placeholders = ", ".join(f":{c}" for c in all_cols)
+                params = {c: user_dict[c] for c in all_cols}
+                sess.execute(text(f"INSERT INTO users ({col_names}) VALUES ({placeholders})"), params)
+            sess.commit()
+            logger.info("User #%s synced to remote.", user_dict["id"])
+        except Exception as e:
+            sess.rollback()
+            logger.warning("User sync failed (write): %s", e)
+        finally:
+            sess.close()
+    except Exception as e:
+        logger.warning("User sync failed (session): %s", e)
+
+
+def delete_user_from_remote(user_id):
+    """Delete a user from the remote database. Never raises."""
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return
+    try:
+        sess = _remote_session_factory()
+        try:
+            sess.execute(text("DELETE FROM users WHERE id = :_id"), {"_id": user_id})
+            sess.commit()
+        except Exception as e:
+            sess.rollback()
+            logger.warning("User delete sync failed: %s", e)
+        finally:
+            sess.close()
+    except Exception as e:
+        logger.warning("User delete sync failed (session): %s", e)
+
+
+def get_user_from_remote(username):
+    """Fetch a user dict from remote DB by username. Returns dict or None. Never raises."""
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return None
+    try:
+        sess = _remote_session_factory()
+        try:
+            row = sess.execute(
+                text("SELECT id, username, password_hash, role, db_access, is_active, last_login, created_at FROM users WHERE username = :u"),
+                {"u": username},
+            ).fetchone()
+            if row:
+                return {
+                    "id": row[0], "username": row[1], "password_hash": row[2],
+                    "role": row[3], "db_access": row[4], "is_active": row[5],
+                    "last_login": row[6], "created_at": row[7],
+                }
+            return None
+        except Exception as e:
+            logger.warning("Remote user lookup failed: %s", e)
+            return None
+        finally:
+            sess.close()
+    except Exception as e:
+        logger.warning("Remote user lookup failed (session): %s", e)
+        return None
+
+
+def update_user_login_remote(user_id, last_login):
+    """Update last_login timestamp on remote. Never raises."""
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return
+    try:
+        sess = _remote_session_factory()
+        try:
+            sess.execute(text("UPDATE users SET last_login = :t WHERE id = :_id"), {"t": last_login, "_id": user_id})
+            sess.commit()
+        except Exception as e:
+            sess.rollback()
+            logger.warning("Remote login update failed: %s", e)
+        finally:
+            sess.close()
+    except Exception as e:
+        logger.warning("Remote login update failed (session): %s", e)
+
+
 def init_all_tables():
     """Create defect_reports table in SQLite and Remote databases. Never raises."""
     from models import db

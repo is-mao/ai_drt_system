@@ -92,8 +92,6 @@
                     : '<span class="badge bg-warning text-dark">Inactive</span>';
                 const roleBadge = u.role === 'superadmin'
                     ? '<span class="badge bg-danger">Superadmin</span>'
-                    : u.role === 'admin'
-                    ? '<span class="badge bg-primary">Admin</span>'
                     : '<span class="badge bg-secondary">User</span>';
 
                 const dbBadge = isSuperadmin
@@ -111,18 +109,10 @@
                     const toggleClass = u.is_active ? 'btn-outline-warning' : 'btn-outline-success';
                     actions += `<button class="btn ${toggleClass} btn-sm me-1" onclick="toggleUser(${u.id}, ${!u.is_active})"><i class="bi ${toggleIcon} me-1"></i>${toggleLabel}</button>`;
 
-                    const roleOptions = u.role === 'admin'
-                        ? `<button class="btn btn-outline-secondary btn-sm me-1" onclick="setRole(${u.id}, 'user')">Set User</button>`
-                        : `<button class="btn btn-outline-primary btn-sm me-1" onclick="setRole(${u.id}, 'admin')">Set Admin</button>`;
-                    actions += roleOptions;
-
-                    // Only show db toggle for non-admin users (admin auto gets SQLite + Remote)
-                    if (u.role !== 'admin') {
-                        const dbToggle = u.db_access === 'remote'
-                            ? `<button class="btn btn-outline-secondary btn-sm me-1" onclick="setDbAccess(${u.id}, 'sqlite')" title="Switch to SQLite"><i class="bi bi-database me-1"></i>\u2192SQLite</button>`
-                            : `<button class="btn btn-outline-info btn-sm me-1" onclick="setDbAccess(${u.id}, 'remote')" title="Switch to Remote"><i class="bi bi-cloud me-1"></i>\u2192Remote</button>`;
-                        actions += dbToggle;
-                    }
+                    const dbToggle = u.db_access === 'remote'
+                        ? `<button class="btn btn-outline-secondary btn-sm me-1" onclick="setDbAccess(${u.id}, 'sqlite')" title="Switch to SQLite"><i class="bi bi-database me-1"></i>\u2192SQLite</button>`
+                        : `<button class="btn btn-outline-info btn-sm me-1" onclick="setDbAccess(${u.id}, 'remote')" title="Switch to Remote"><i class="bi bi-cloud me-1"></i>\u2192Remote</button>`;
+                    actions += dbToggle;
 
                     actions += `<button class="btn btn-outline-danger btn-sm" onclick="deleteUser(${u.id}, '${esc(u.username)}')"><i class="bi bi-trash"></i></button>`;
                 } else {
