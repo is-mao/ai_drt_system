@@ -4,7 +4,12 @@ from flask import Blueprint, request, session, jsonify, render_template, redirec
 from functools import wraps
 from datetime import datetime
 from werkzeug.security import check_password_hash
-from services.db_routing import sync_user_to_remote, delete_user_from_remote, get_user_from_remote, update_user_login_remote
+from services.db_routing import (
+    sync_user_to_remote,
+    delete_user_from_remote,
+    get_user_from_remote,
+    update_user_login_remote,
+)
 
 auth_bp = Blueprint("auth", __name__, url_prefix="")
 
@@ -44,7 +49,7 @@ def login():
 
 @auth_bp.route("/register", methods=["GET"])
 def register_page():
-    return redirect(url_for("auth.login_page"))
+    return redirect(url_for("auth.login"))
 
 
 @auth_bp.route("/api/auth/register", methods=["POST"])
@@ -74,11 +79,16 @@ def api_register():
     db.session.commit()
 
     # Sync new user to remote
-    sync_user_to_remote({
-        "id": user.id, "username": user.username,
-        "password_hash": user.password_hash, "role": user.role,
-        "db_access": user.db_access, "is_active": user.is_active,
-    })
+    sync_user_to_remote(
+        {
+            "id": user.id,
+            "username": user.username,
+            "password_hash": user.password_hash,
+            "role": user.role,
+            "db_access": user.db_access,
+            "is_active": user.is_active,
+        }
+    )
 
     return jsonify({"success": True, "message": "Registration successful. Please wait for admin approval."})
 
@@ -96,46 +106,48 @@ def api_login():
     if not username or not password:
         return jsonify({"success": False, "error": "Username and password are required"}), 400
 
+    # --- Remote-first authentication ---
+    # Try remote DB first; fall back to local if network is unavailable.
+    remote_user = get_user_from_remote(username)
+    if remote_user and check_password_hash(remote_user["password_hash"], password):
+        if not remote_user["is_active"]:
+            return jsonify({"success": False, "error": "Account is pending approval. Please contact admin."}), 403
+
+        now = datetime.now()
+        update_user_login_remote(remote_user["id"], now)
+
+        session.permanent = True
+        session["user_id"] = remote_user["id"]
+        session["username"] = remote_user["username"]
+        session["role"] = remote_user["role"]
+        session["db_access"] = remote_user.get("db_access", "sqlite")
+        session["login_source"] = "remote"
+
+        return jsonify({"success": True, "message": "Login successful", "login_source": "remote", "user": remote_user})
+
+    # --- Local fallback ---
+    # Remote returned None (network error) or user not found / wrong password.
     user = User.query.filter_by(username=username).first()
 
-    # If not found locally, try remote DB (for multi-machine deployment)
-    if not user:
-        remote_user = get_user_from_remote(username)
-        if remote_user and check_password_hash(remote_user["password_hash"], password):
-            if not remote_user["is_active"]:
-                return jsonify({"success": False, "error": "Account is pending approval. Please contact admin."}), 403
-
-            # Update remote last_login
-            now = datetime.now()
-            update_user_login_remote(remote_user["id"], now)
-
-            session.permanent = True
-            session["user_id"] = remote_user["id"]
-            session["username"] = remote_user["username"]
-            session["role"] = remote_user["role"]
-            session["db_access"] = remote_user["db_access"]
-
-            return jsonify({"success": True, "message": "Login successful", "user": remote_user})
-        return jsonify({"success": False, "error": "Invalid username or password"}), 401
-
-    if not user.check_password(password):
+    if not user or not user.check_password(password):
         return jsonify({"success": False, "error": "Invalid username or password"}), 401
 
     if not user.is_active:
         return jsonify({"success": False, "error": "Account is pending approval. Please contact admin."}), 403
 
-    # Update last login timestamp
     user.last_login = datetime.now()
     db.session.commit()
 
-    # Set session data
     session.permanent = True
     session["user_id"] = user.id
     session["username"] = user.username
     session["role"] = user.role
     session["db_access"] = user.db_access
+    session["login_source"] = "local"
 
-    return jsonify({"success": True, "message": "Login successful", "user": user.to_dict()})
+    return jsonify(
+        {"success": True, "message": "Login successful (offline mode)", "login_source": "local", "user": user.to_dict()}
+    )
 
 
 @auth_bp.route("/api/auth/logout", methods=["POST"])
@@ -200,11 +212,16 @@ def update_user(user_id):
     db.session.commit()
 
     # Sync changes to remote (include password_hash which to_dict omits)
-    sync_user_to_remote({
-        "id": user.id, "username": user.username,
-        "password_hash": user.password_hash, "role": user.role,
-        "db_access": user.db_access, "is_active": user.is_active,
-    })
+    sync_user_to_remote(
+        {
+            "id": user.id,
+            "username": user.username,
+            "password_hash": user.password_hash,
+            "role": user.role,
+            "db_access": user.db_access,
+            "is_active": user.is_active,
+        }
+    )
 
     return jsonify({"success": True, "user": user.to_dict()})
 

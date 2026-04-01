@@ -13,6 +13,13 @@
         <div class="page-subtitle">Records imported from Cesium awaiting completion</div>
     </div>
     <div class="d-flex gap-2 align-items-center">
+        {% set can_toggle = session.get('role') == 'superadmin' or session.get('db_access') in ('remote', 'both') %}
+        {% if can_toggle %}
+        <div class="btn-group btn-group-sm" id="sourceToggle" role="group" aria-label="Data source">
+            <button type="button" class="btn btn-sm btn-outline-secondary active" data-source="local"><i class="bi bi-hdd me-1"></i>Local</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-source="remote"><i class="bi bi-cloud me-1"></i>Remote</button>
+        </div>
+        {% endif %}
         <button type="button" class="btn btn-sm btn-outline-danger d-none" id="batchDeleteBtn"><i class="bi bi-trash me-1"></i>Delete (<span id="selectedCount">0</span>)</button>
         <button type="button" class="btn btn-sm btn-outline-primary" id="refreshDraftsBtn"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
     </div>
@@ -129,6 +136,8 @@
 (function () {
     var isSuperadmin = {{ 'true' if session.get('role') == 'superadmin' else 'false' }};
     var colSpan = isSuperadmin ? 16 : 15;
+    var canToggle = {{ 'true' if session.get('role') == 'superadmin' or session.get('db_access') in ('remote', 'both') else 'false' }};
+    var currentSource = 'local';
     function showToast(message, type) {
         const toastEl = document.getElementById('appToast');
         const toastMsg = document.getElementById('toastMessage');
@@ -163,6 +172,8 @@
             sort_by: sortBy,
             sort_dir: sortDir,
         });
+
+        if (canToggle) params.set('source', currentSource);
 
         var bu = document.getElementById('draftFilterBU').value;
         var dc = document.getElementById('draftFilterDefectClass').value;
@@ -471,6 +482,21 @@
             }, 600);
         });
     });
+
+    // ---- Data Source Toggle ----
+    if (canToggle) {
+        document.querySelectorAll('#sourceToggle button').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var src = this.getAttribute('data-source');
+                if (src === currentSource) return;
+                currentSource = src;
+                document.querySelectorAll('#sourceToggle button').forEach(function (b) { b.classList.remove('active'); });
+                this.classList.add('active');
+                draftPage = 1;
+                loadDrafts();
+            });
+        });
+    }
 
     // Initial load
     loadDrafts();

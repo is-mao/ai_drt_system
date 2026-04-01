@@ -91,6 +91,8 @@ def import_excel():
     if not file.filename or not file.filename.endswith(".xlsx"):
         return jsonify({"success": False, "error": "Only .xlsx files are accepted"}), 400
 
+    udb = get_user_db()
+
     try:
         file_bytes = BytesIO(file.read())
         # Try openpyxl first, fall back to zipfile+XML if styles parsing fails

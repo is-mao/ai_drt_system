@@ -73,7 +73,7 @@ def get_ai_settings():
 @settings_bp.route("/api/settings/ai", methods=["PUT"])
 @login_required
 def update_ai_settings():
-    if session.get("role") != "admin":
+    if session.get("role") not in ("admin", "superadmin"):
         return jsonify({"error": "Admin access required"}), 403
     data = request.get_json()
     if not data:

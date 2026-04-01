@@ -80,12 +80,63 @@ class UserDB:
                 pass
 
 
+def get_db_for_source(source):
+    """Get a UserDB for an explicit data source ('local' or 'remote').
+
+    Used by the data-source toggle on Defects / Pending pages.
+    Callers are responsible for closing the returned session (via cleanup_user_db).
+    """
+    from models import db
+
+    if source == "remote":
+        _, factory = _get_remote_engine()
+        if factory:
+            return UserDB(factory(), is_primary=False, sync_remote=False)
+
+    # For superadmin, "local" means MySQL (primary db), not SQLite
+    role = flask_session.get("role")
+    if role == "superadmin":
+        return UserDB(db.session, is_primary=True, sync_remote=True)
+
+    # For other users, "local" means SQLite
+    _, factory = _get_sqlite_engine()
+    if factory:
+        return UserDB(factory(), is_primary=False, sync_remote=False)
+    return UserDB(db.session, is_primary=True, sync_remote=False)
+
+
+def _resolve_source_override():
+    """Check if the request has a `source` query param and the user is allowed to use it."""
+    from flask import request
+
+    source = request.args.get("source", "").strip().lower()
+    if source not in ("local", "remote"):
+        return None
+    # Only users with remote / both access (or superadmin) may switch
+    role = flask_session.get("role")
+    db_access = flask_session.get("db_access", "sqlite")
+    if role == "superadmin" or db_access in ("remote", "both"):
+        return source
+    return None
+
+
 def get_user_db():
-    """Get the UserDB adapter for the current request's user."""
+    """Get the UserDB adapter for the current request's user.
+
+    Respects an optional `?source=local|remote` query parameter for users
+    who have the appropriate db_access permission.
+    """
     if "user_db" in g:
         return g.user_db
 
     from models import db
+
+    # Check for explicit source override from the toggle
+    source_override = _resolve_source_override()
+    if source_override:
+        udb = get_db_for_source(source_override)
+        g.user_db = udb
+        return udb
 
     role = flask_session.get("role")
 
@@ -266,14 +317,21 @@ def get_user_from_remote(username):
         sess = _remote_session_factory()
         try:
             row = sess.execute(
-                text("SELECT id, username, password_hash, role, db_access, is_active, last_login, created_at FROM users WHERE username = :u"),
+                text(
+                    "SELECT id, username, password_hash, role, db_access, is_active, last_login, created_at FROM users WHERE username = :u"
+                ),
                 {"u": username},
             ).fetchone()
             if row:
                 return {
-                    "id": row[0], "username": row[1], "password_hash": row[2],
-                    "role": row[3], "db_access": row[4], "is_active": row[5],
-                    "last_login": row[6], "created_at": row[7],
+                    "id": row[0],
+                    "username": row[1],
+                    "password_hash": row[2],
+                    "role": row[3],
+                    "db_access": row[4],
+                    "is_active": row[5],
+                    "last_login": row[6],
+                    "created_at": row[7],
                 }
             return None
         except Exception as e:

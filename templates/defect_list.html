@@ -10,6 +10,13 @@
         <div class="page-subtitle">Manage and track all defect records</div>
     </div>
     <div class="d-flex gap-2 align-items-center">
+        {% set can_toggle = session.get('role') == 'superadmin' or session.get('db_access') in ('remote', 'both') %}
+        {% if can_toggle %}
+        <div class="btn-group btn-group-sm" id="sourceToggle" role="group" aria-label="Data source">
+            <button type="button" class="btn btn-sm btn-outline-secondary active" data-source="local"><i class="bi bi-hdd me-1"></i>Local</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-source="remote"><i class="bi bi-cloud me-1"></i>Remote</button>
+        </div>
+        {% endif %}
         {% if session.get('role') == 'superadmin' %}
         <button type="button" class="btn btn-sm btn-outline-danger d-none" id="batchDeleteBtn"><i class="bi bi-trash me-1"></i>Delete (<span id="selectedCount">0</span>)</button>
         {% endif %}
@@ -145,6 +152,8 @@
 (function () {
     var isSuperadmin = {{ 'true' if session.get('role') == 'superadmin' else 'false' }};
     var colSpan = isSuperadmin ? 16 : 14;
+    var canToggle = {{ 'true' if session.get('role') == 'superadmin' or session.get('db_access') in ('remote', 'both') else 'false' }};
+    var currentSource = 'local';
     let currentPage = 1;
     let perPage = 25;
     let sortBy = 'updated_at';
@@ -163,6 +172,8 @@
             sort_by: sortBy,
             sort_dir: sortDir,
         });
+
+        if (canToggle) params.set('source', currentSource);
 
         const bu = document.getElementById('filterBu').value;
         const dc = document.getElementById('filterDefectClass').value;
@@ -540,8 +551,24 @@
         if (dt) params.set('date_to', dt);
         if (se) params.set('search', se);
         if (!document.getElementById('exportIncludeLog').checked) params.set('exclude_log', '1');
+        if (canToggle) params.set('source', currentSource);
         window.location.href = '/api/export/excel?' + params.toString();
     });
+
+    // ---- Data Source Toggle ----
+    if (canToggle) {
+        document.querySelectorAll('#sourceToggle button').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var src = this.getAttribute('data-source');
+                if (src === currentSource) return;
+                currentSource = src;
+                document.querySelectorAll('#sourceToggle button').forEach(function (b) { b.classList.remove('active'); });
+                this.classList.add('active');
+                currentPage = 1;
+                loadData();
+            });
+        });
+    }
 
     // ---- Initial Load ----
     loadData().then(function () {
