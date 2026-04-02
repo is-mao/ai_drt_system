@@ -632,6 +632,11 @@
 
     if (mode !== 'edit') {
         document.getElementById('fieldWeekNumber').value = calculateCurrentWeek();
+        // Default BU from user's registered BU
+        var userBu = {{ session.get('user_bu', '')|tojson }};
+        if (userBu) {
+            document.getElementById('fieldBu').value = userBu;
+        }
     }
 
     // ---- Pre-fill for edit mode ----

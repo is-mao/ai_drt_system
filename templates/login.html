@@ -514,6 +514,15 @@
                             <button type="button" class="toggle-password" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label for="regBU">Business Unit</label>
+                        <select id="regBU" required style="width:100%;padding:0.7rem 1rem;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e0e0e0;font-size:0.95rem;outline:none;transition:all 0.3s ease;appearance:auto;">
+                            <option value="" disabled selected>Select your BU</option>
+                            {% for bu in bu_options %}
+                            <option value="{{ bu }}">{{ bu }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                     <button type="submit" class="btn-action" id="regBtn">Register</button>
                 </form>
                 <div class="card-footer">
@@ -694,6 +703,7 @@
             var username = document.getElementById('regUser').value.trim();
             var password = document.getElementById('regPass').value;
             var confirm = document.getElementById('regConfirm').value;
+            var bu = document.getElementById('regBU').value;
 
             regError.style.display = 'none';
             regSuccess.style.display = 'none';
@@ -706,6 +716,10 @@
                 showAlert(regError, 'Passwords do not match.');
                 return;
             }
+            if (!bu) {
+                showAlert(regError, 'Please select a Business Unit.');
+                return;
+            }
 
             regBtn.disabled = true;
             regBtn.textContent = 'Registering...';
@@ -714,7 +728,7 @@
                 var resp = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username, password: password })
+                    body: JSON.stringify({ username: username, password: password, bu: bu })
                 });
                 var data = await resp.json();
                 if (data.success) {

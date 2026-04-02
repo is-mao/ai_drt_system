@@ -83,6 +83,9 @@
             <span class="badge bg-success me-2" style="font-size:0.7rem;">
                 <i class="bi bi-cloud"></i> Online
             </span>
+            <button class="btn btn-outline-light btn-sm me-2" id="syncLocalBtn" title="Sync local data to remote DB" style="font-size:0.7rem; padding: 2px 8px;">
+                <i class="bi bi-cloud-upload"></i> Sync Local
+            </button>
             {% else %}
             <span class="badge bg-secondary me-2" style="font-size:0.7rem;">
                 <i class="bi bi-hdd"></i> Offline
@@ -205,6 +208,37 @@
                     link.classList.add('active');
                 }
             });
+
+            // Sync Local button handler
+            var syncBtn = document.getElementById('syncLocalBtn');
+            if (syncBtn) {
+                syncBtn.addEventListener('click', async function() {
+                    var ok = await appConfirm(
+                        'Push all local (offline) defect records to the remote database?',
+                        'Sync Local → Remote'
+                    );
+                    if (!ok) return;
+                    syncBtn.disabled = true;
+                    syncBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing...';
+                    try {
+                        var resp = await fetch('/api/sync/local-to-remote', { method: 'POST' });
+                        var data = await resp.json();
+                        if (data.success) {
+                            await appAlert(data.message, 'Sync Complete', 'success');
+                        } else {
+                            var msg = data.error || 'Sync failed';
+                            if (data.synced > 0) msg += ' (' + data.synced + ' synced before error)';
+                            await appAlert(msg, 'Sync Error', 'danger');
+                        }
+                    } catch (err) {
+                        await appAlert('Network error: ' + err.message, 'Sync Error', 'danger');
+                    } finally {
+                        syncBtn.disabled = false;
+                        syncBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Sync Local';
+                    }
+                });
+            }
+
             // Load pending badge count
             fetch('/api/draft-records?per_page=1&page=1')
                 .then(r => r.json())

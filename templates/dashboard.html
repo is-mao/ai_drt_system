@@ -504,6 +504,14 @@
     });
 
     // Initial load
+    // Set default BU filter from user's registered BU
+    (function() {
+        var userBu = {{ session.get('user_bu', '')|tojson }};
+        if (userBu) {
+            var sel = document.getElementById('filterBU');
+            if (sel) sel.value = userBu;
+        }
+    })();
     loadAll();
 })();
 </script>

@@ -10,6 +10,7 @@ class User(db.Model):
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="user")  # superadmin, user
+    bu = db.Column(db.String(20), default="")  # Business Unit (e.g. CRBU, WNBU)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
     last_login = db.Column(db.DateTime)
@@ -25,6 +26,7 @@ class User(db.Model):
             "id": self.id,
             "username": self.username,
             "role": self.role,
+            "bu": self.bu or "",
             "is_active": self.is_active,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None,
             "last_login": self.last_login.strftime("%Y-%m-%d %H:%M:%S") if self.last_login else None,

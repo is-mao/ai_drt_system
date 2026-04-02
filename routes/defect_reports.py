@@ -5,7 +5,7 @@ from models import db
 from models.defect_report import DefectReport
 from routes.auth import login_required
 from config import Config
-from services.db_routing import get_user_db, sync_to_remote, sync_update_to_remote, sync_delete_to_remote
+from services.db_routing import get_user_db, sync_to_remote, sync_update_to_remote, sync_delete_to_remote, sync_all_local_to_remote
 
 defects_bp = Blueprint("defects", __name__, url_prefix="")
 
@@ -356,3 +356,30 @@ def _parse_datetime(value):
         except ValueError:
             continue
     return None
+
+
+# ---------------------------------------------------------------------------
+# Sync local (offline) data → remote database
+# ---------------------------------------------------------------------------
+
+
+@defects_bp.route("/api/sync/local-to-remote", methods=["POST"])
+@login_required
+def api_sync_local_to_remote():
+    """Push all local SQLite defect reports to the remote database.
+
+    Only available for online-mode users. Deduplicates by (sn, record_time).
+    """
+    if session.get("mode") != "online":
+        return jsonify({"success": False, "error": "Sync is only available in online mode."}), 403
+
+    synced, skipped, error = sync_all_local_to_remote()
+    if error:
+        return jsonify({"success": False, "error": error, "synced": synced, "skipped": skipped}), 500
+
+    return jsonify({
+        "success": True,
+        "synced": synced,
+        "skipped": skipped,
+        "message": f"Sync complete: {synced} new records pushed, {skipped} duplicates skipped.",
+    })

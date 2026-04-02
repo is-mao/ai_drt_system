@@ -357,6 +357,14 @@
     })
 
     document.getElementById('draftFilterBU').addEventListener('change', function () { draftPage = 1; loadDrafts(); });
+    // Set default BU filter from user's registered BU
+    (function() {
+        var userBu = {{ session.get('user_bu', '')|tojson }};
+        if (userBu) {
+            var sel = document.getElementById('draftFilterBU');
+            if (sel) sel.value = userBu;
+        }
+    })();
     document.getElementById('refreshDraftsBtn').addEventListener('click', loadDrafts);
     document.getElementById('draftPerPageSelect').addEventListener('change', function () {
         draftPerPage = parseInt(this.value);

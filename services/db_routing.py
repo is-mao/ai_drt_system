@@ -2,7 +2,7 @@
 
 Architecture:
 - Offline mode: SQLite (local, zero-config) via Flask-SQLAlchemy db.session
-- Online mode: Remote database (Supabase/PostgreSQL) via DATABASE_URL
+- Online mode: Remote database (MySQL) via DATABASE_URL
 - All users follow the same routing. Superadmin has no special DB treatment.
 """
 
@@ -209,7 +209,7 @@ def sync_delete_to_remote(report_id):
 # ---------------------------------------------------------------------------
 
 
-def register_user_to_remote(username, password_hash, role="user", is_active=False):
+def register_user_to_remote(username, password_hash, role="user", is_active=False, bu=""):
     """Register a new user directly to the remote database.
 
     Returns (True, message) on success, (False, error) on failure.
@@ -229,18 +229,19 @@ def register_user_to_remote(username, password_hash, role="user", is_active=Fals
                 return False, "Username already exists"
             sess.execute(
                 text(
-                    "INSERT INTO users (username, password_hash, role, is_active) "
-                    "VALUES (:username, :password_hash, :role, :is_active)"
+                    "INSERT INTO users (username, password_hash, role, bu, is_active) "
+                    "VALUES (:username, :password_hash, :role, :bu, :is_active)"
                 ),
                 {
                     "username": username,
                     "password_hash": password_hash,
                     "role": role,
+                    "bu": bu,
                     "is_active": is_active,
                 },
             )
             sess.commit()
-            logger.info("User '%s' registered to remote.", username)
+            logger.info("User '%s' registered to remote (BU=%s).", username, bu)
             return True, "Registration successful. Please wait for admin approval."
         except Exception as e:
             sess.rollback()
@@ -321,7 +322,7 @@ def get_user_from_remote(username):
         try:
             row = sess.execute(
                 text(
-                    "SELECT id, username, password_hash, role, db_access, is_active, last_login, created_at FROM users WHERE username = :u"
+                    "SELECT id, username, password_hash, role, bu, is_active, last_login, created_at FROM users WHERE username = :u"
                 ),
                 {"u": username},
             ).fetchone()
@@ -331,7 +332,7 @@ def get_user_from_remote(username):
                     "username": row[1],
                     "password_hash": row[2],
                     "role": row[3],
-                    "db_access": row[4],
+                    "bu": row[4] or "",
                     "is_active": row[5],
                     "last_login": row[6],
                     "created_at": row[7],
@@ -366,6 +367,144 @@ def update_user_login_remote(user_id, last_login):
         logger.warning("Remote login update failed (session): %s", e)
 
 
+# ---------------------------------------------------------------------------
+# Remote-first user management (for superadmin to manage remote users)
+# ---------------------------------------------------------------------------
+
+
+def list_all_remote_users():
+    """List all users from the remote database. Returns list of dicts or None on error."""
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return None
+    try:
+        sess = _remote_session_factory()
+        try:
+            rows = sess.execute(
+                text(
+                    "SELECT id, username, role, bu, is_active, last_login, created_at "
+                    "FROM users ORDER BY created_at DESC"
+                )
+            ).fetchall()
+            return [
+                {
+                    "id": r[0],
+                    "username": r[1],
+                    "role": r[2],
+                    "bu": r[3] or "",
+                    "is_active": bool(r[4]) if r[4] is not None else True,
+                    "last_login": r[5].strftime("%Y-%m-%d %H:%M:%S") if r[5] else None,
+                    "created_at": r[6].strftime("%Y-%m-%d %H:%M:%S") if r[6] else None,
+                }
+                for r in rows
+            ]
+        except Exception as e:
+            logger.warning("Remote user list failed: %s", e)
+            return None
+        finally:
+            sess.close()
+    except Exception as e:
+        logger.warning("Remote user list failed (session): %s", e)
+        return None
+
+
+def update_remote_user(user_id, updates):
+    """Update a user record in the remote database.
+
+    updates: dict of column->value (e.g. {"is_active": True}).
+    Returns (True, user_dict) on success, (False, error_msg) on failure.
+    """
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return False, "Remote database not configured."
+    try:
+        sess = _remote_session_factory()
+        try:
+            row = sess.execute(
+                text("SELECT id, role FROM users WHERE id = :_id"),
+                {"_id": user_id},
+            ).fetchone()
+            if not row:
+                return False, "User not found"
+            if row[1] == "superadmin" and "role" in updates:
+                return False, "Cannot modify superadmin role"
+
+            allowed = {"is_active", "role", "bu"}
+            cols = {k: v for k, v in updates.items() if k in allowed}
+            if not cols:
+                return False, "No valid fields to update"
+
+            set_clause = ", ".join(f"{c} = :{c}" for c in cols)
+            params = dict(cols)
+            params["_id"] = user_id
+            sess.execute(text(f"UPDATE users SET {set_clause} WHERE id = :_id"), params)
+            sess.commit()
+
+            # Fetch updated row
+            updated = sess.execute(
+                text(
+                    "SELECT id, username, role, bu, is_active, last_login, created_at "
+                    "FROM users WHERE id = :_id"
+                ),
+                {"_id": user_id},
+            ).fetchone()
+            if updated:
+                user_dict = {
+                    "id": updated[0],
+                    "username": updated[1],
+                    "role": updated[2],
+                    "bu": updated[3] or "",
+                    "is_active": bool(updated[4]) if updated[4] is not None else True,
+                    "last_login": updated[5].strftime("%Y-%m-%d %H:%M:%S") if updated[5] else None,
+                    "created_at": updated[6].strftime("%Y-%m-%d %H:%M:%S") if updated[6] else None,
+                }
+                return True, user_dict
+            return True, {}
+        except Exception as e:
+            sess.rollback()
+            logger.warning("Remote user update failed: %s", e)
+            return False, str(e)
+        finally:
+            sess.close()
+    except Exception as e:
+        logger.warning("Remote user update failed (session): %s", e)
+        return False, str(e)
+
+
+def delete_remote_user(user_id):
+    """Delete a user from the remote database.
+
+    Returns (True, message) on success, (False, error_msg) on failure.
+    """
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return False, "Remote database not configured."
+    try:
+        sess = _remote_session_factory()
+        try:
+            row = sess.execute(
+                text("SELECT id, username, role FROM users WHERE id = :_id"),
+                {"_id": user_id},
+            ).fetchone()
+            if not row:
+                return False, "User not found"
+            if row[2] == "superadmin":
+                return False, "Cannot delete superadmin"
+            username = row[1]
+            sess.execute(text("DELETE FROM users WHERE id = :_id"), {"_id": user_id})
+            sess.commit()
+            return True, f'User "{username}" deleted'
+        except Exception as e:
+            sess.rollback()
+            logger.warning("Remote user delete failed: %s", e)
+            return False, str(e)
+        finally:
+            sess.close()
+    except Exception as e:
+        logger.warning("Remote user delete failed (session): %s", e)
+        return False, str(e)
+
+
 def init_all_tables():
     """Create tables in remote database (if configured). Never raises.
 
@@ -378,6 +517,115 @@ def init_all_tables():
         engine, _ = _get_remote_engine()
         if engine:
             db.metadata.create_all(bind=engine)
+            # Migrate missing columns in remote DB
+            _migrate_remote_columns(engine)
             logger.info("Remote tables synced.")
     except Exception as e:
         logger.warning("Remote table creation failed: %s", e)
+
+
+def _migrate_remote_columns(engine):
+    """Add missing columns to remote database tables. Never raises."""
+    REMOTE_MIGRATIONS = {
+        "users": {"bu": "VARCHAR(20) DEFAULT ''"},
+    }
+    try:
+        from sqlalchemy import inspect as sa_inspect
+
+        inspector = sa_inspect(engine)
+        with engine.connect() as conn:
+            for table, columns in REMOTE_MIGRATIONS.items():
+                try:
+                    existing = {col["name"] for col in inspector.get_columns(table)}
+                except Exception:
+                    continue
+                for col_name, col_type in columns.items():
+                    if col_name not in existing:
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
+                        conn.commit()
+                        logger.info("Remote: added column %s.%s", table, col_name)
+    except Exception as e:
+        logger.warning("Remote column migration failed: %s", e)
+
+
+# ---------------------------------------------------------------------------
+# Bulk sync: push all local (SQLite) defect reports → remote database
+# ---------------------------------------------------------------------------
+
+def sync_all_local_to_remote():
+    """Read all defect_reports from local SQLite and upsert to remote DB.
+
+    Returns (synced_count, skipped_count, error_message_or_None).
+    """
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return 0, 0, "Remote database is not configured."
+
+    from models import db as local_db
+    from models.defect_report import DefectReport
+
+    # Read all local records
+    local_reports = local_db.session.query(DefectReport).all()
+    if not local_reports:
+        return 0, 0, None  # nothing to sync
+
+    columns = [
+        "bu", "week_number", "pcap_n", "station", "server", "sn",
+        "record_time", "failure", "defect_class", "defect_value",
+        "root_cause", "action", "pn", "component_sn", "log_content",
+        "sequence_log", "buffer_log", "ai_root_cause", "status",
+        "created_by", "created_at", "updated_at",
+    ]
+
+    try:
+        sess = _remote_session_factory()
+    except Exception as e:
+        return 0, 0, f"Failed to connect to remote: {e}"
+
+    synced = 0
+    skipped = 0
+    try:
+        # Build a set of existing remote SNs + record_times for dedup
+        existing_rows = sess.execute(
+            text("SELECT sn, record_time FROM defect_reports")
+        ).fetchall()
+        existing_keys = set()
+        for row in existing_rows:
+            key = (str(row[0] or "").strip(), str(row[1] or "").strip())
+            existing_keys.add(key)
+
+        for report in local_reports:
+            # Dedup by (sn, record_time)
+            rt_str = report.record_time.strftime("%Y-%m-%d %H:%M:%S") if report.record_time else ""
+            local_key = (str(report.sn or "").strip(), rt_str)
+            if local_key in existing_keys:
+                skipped += 1
+                continue
+
+            params = {}
+            for col in columns:
+                val = getattr(report, col, None)
+                if val is not None and hasattr(val, "strftime"):
+                    val = val.strftime("%Y-%m-%d %H:%M:%S")
+                params[col] = val
+
+            non_null_cols = [c for c in columns if params[c] is not None]
+            col_names = ", ".join(non_null_cols)
+            placeholders = ", ".join(f":{c}" for c in non_null_cols)
+            insert_params = {c: params[c] for c in non_null_cols}
+
+            sess.execute(
+                text(f"INSERT INTO defect_reports ({col_names}) VALUES ({placeholders})"),
+                insert_params,
+            )
+            synced += 1
+
+        sess.commit()
+        logger.info("Bulk sync complete: %d synced, %d skipped (duplicates).", synced, skipped)
+        return synced, skipped, None
+    except Exception as e:
+        sess.rollback()
+        logger.warning("Bulk sync failed: %s", e)
+        return synced, skipped, str(e)
+    finally:
+        sess.close()
