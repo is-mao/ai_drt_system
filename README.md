@@ -10,78 +10,121 @@ A Flask-based Defect Report Tracking system with AI-powered log analysis using G
 - **AI Log Analysis** — Auto-classify defects using Gemini AI (4-tier fallback)
 - **AI Beautification** — Polish Root Cause & Action text with AI
 - **Dashboard** — KPIs, charts (defect class, weekly trend, top stations/servers/PCAP/failures)
-- **Multi-DB Support** — SQLite (zero-setup), MySQL, or PostgreSQL
-- **Top Navigation Bar** — Responsive layout with Dashboard, Defects, Pending, Import, Settings
+- **Offline / Online Mode** — Users choose at login; offline = local SQLite, online = remote Supabase
+- **User Management** — Superadmin approves/deletes accounts
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────┐
+│                  Login Page                       │
+│           [ Offline ]   [ Online ]               │
+└────────┬───────────────────────┬─────────────────┘
+         │                       │
+    Offline Mode            Online Mode
+         │                       │
+    ┌────▼────┐            ┌─────▼──────┐
+    │ SQLite  │            │  Supabase  │
+    │ (local) │            │ (remote)   │
+    └─────────┘            └────────────┘
+```
+
+### Two Modes
+
+| Mode | Local DB | Auth | Data Source | Use Case |
+|------|----------|------|-------------|----------|
+| **Offline** | SQLite | Local only (cisco/cisco) | SQLite | No network, quick access |
+| **Online** | — | Remote (Supabase) | Supabase/PostgreSQL | Shared data, multi-user |
+
+### Accounts
+
+| Account | Where | Purpose |
+|---------|-------|---------|
+| `cisco` / `cisco` | Local SQLite (auto-created) | The sole offline account |
+| Registered users | Remote DB only | Online access, needs admin approval |
+| `ismao` (superadmin) | Local SQLite (auto-created) | User management |
+
+- **Register** = writes to remote DB only (never stored locally)
+- **"cisco" username** is reserved and cannot be registered to remote
+- Superadmin manages users at `/admin/users`
 
 ## Quick Start
 
 ```bash
 # 1. Clone
-git clone https://github.com/is-mao/ai_drt_system.git
+git clone <repo-url>
 cd ai_drt_system
 
 # 2. Create virtual environment
 python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/Mac:
-source .venv/bin/activate
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux/Mac
 
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment
-cp .env.example .env
-# Edit .env — set DRT_DB_TYPE and GEMINI_API_KEY
-
-# 5. Run
+# 4. Run
 python app.py
-# Open http://127.0.0.1:5001
-# Default login: admin / admin123
+# Open http://localhost:5001
+# Offline login: cisco / cisco
 ```
 
-## Windows Deployment (Background)
+### Enable Online Mode
+
+To use online mode, set the `DATABASE_URL` environment variable:
+
+```bash
+# .env file
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+```
+
+Or configure it in the Settings page (superadmin only).
+
+## Windows Deployment
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\start_drt.ps1          # Start
-powershell -ExecutionPolicy Bypass -File .\start_drt.ps1 -Stop    # Stop
-powershell -ExecutionPolicy Bypass -File .\start_drt.ps1 -Status  # Check status
+.\start_drt.ps1              # Start
+.\start_drt.ps1 -Stop        # Stop
+.\start_drt.ps1 -Restart     # Restart
+.\start_drt.ps1 -Status      # Check status
 ```
 
 Logs saved to `logs/` directory.
 
-## Database Options
+## Configuration
 
-| Mode | Config | Use Case |
-|------|--------|----------|
-| **SQLite** (default) | `DRT_DB_TYPE=sqlite` | Single user, local, zero setup |
-| **MySQL** | `DRT_DB_TYPE=mysql` | Multi-user, shared, production |
+All configuration via environment variables (or `.env` file):
 
-- SQLite: DB file auto-created at `instance/drt.db`, portable
-- MySQL: Configure host/port/user/password in `.env`
-
-## Data Portability
-
-- **Export**: Defect Reports → Export Excel (with or without logs)
-- **Import**: Excel or Cesium `.xlsx` files
-- **Migrate**: Export from SQLite → Import to MySQL (or vice versa)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | *(empty)* | Remote DB URL for online mode (PostgreSQL/Supabase) |
+| `GEMINI_API_KEY` | *(empty)* | Google Gemini API key for AI features |
+| `DRT_SECRET_KEY` | *(auto)* | Flask session secret key |
+| `FLASK_DEBUG` | `0` | Set `1` for development mode |
+| `PORT` | `5001` | Server port |
 
 ## Project Structure
 
 ```
 ai_drt_system/
 ├── app.py              # Flask app factory, entry point
-├── config.py           # Configuration (DB, defect classes/values, BU options)
-├── .env.example        # Environment variables template
+├── config.py           # Configuration (SQLite + remote DB)
 ├── requirements.txt    # Python dependencies
 ├── start_drt.ps1       # Windows deployment script
-├── models/             # SQLAlchemy models
-├── routes/             # Flask blueprints (auth, defects, import/export, dashboard, AI)
-├── services/           # AI service (Gemini integration)
+├── .env.example        # Environment variables template
+├── drt_system.db       # SQLite database (auto-created)
+├── models/             # SQLAlchemy models (User, DefectReport, SystemConfig)
+├── routes/             # Flask blueprints (auth, defects, import/export, dashboard, AI, settings)
+├── services/           # DB routing, AI service (Gemini integration)
 ├── templates/          # Jinja2 HTML templates
-├── static/             # CSS, JS, images
-└── docs/               # User guide, API key guide
+├── static/             # CSS, JS
+└── logs/               # Server logs (auto-created)
 ```
+
+## Data Portability
+
+- **Export**: Defect Reports → Export Excel (with or without logs)
+- **Import**: Excel or Cesium `.xlsx` files
 
 ## License
 

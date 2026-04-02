@@ -34,20 +34,20 @@
             align-items: center;
             top: 50%;
             right: 100%;
-            transform: translateY(-50%);
-            margin-right: 20px;
+            transform: translateY(-50%) scale(1.3);
+            margin-right: 50px;
         }
 
         .lamp-ceiling {
-            width: 70px;
-            height: 6px;
+            width: 85px;
+            height: 7px;
             background: #3a3a3a;
             border-radius: 0 0 4px 4px;
         }
 
         .lamp-cord-top {
             width: 2px;
-            height: 28px;
+            height: 34px;
             background: #666;
         }
 
@@ -88,9 +88,10 @@
         }
 
         .lamp-on .lamp-bulb {
-            background: #fff8e1;
-            box-shadow: 0 0 25px 12px var(--glow-color, rgba(255,200,50,0.5)),
-                        0 0 60px 30px var(--glow-color-soft, rgba(255,200,50,0.15));
+            background: #fffde8;
+            box-shadow: 0 0 35px 18px var(--glow-color, rgba(255,200,50,0.6)),
+                        0 0 80px 45px var(--glow-color-soft, rgba(255,200,50,0.25)),
+                        0 0 120px 60px var(--glow-color-soft, rgba(255,200,50,0.08));
         }
 
         .light-cone {
@@ -109,8 +110,9 @@
         }
 
         .lamp-on .light-cone {
-            border-top-color: var(--cone-color, rgba(255,200,50,0.04));
+            border-top-color: var(--cone-color, rgba(255,200,50,0.07));
             opacity: 1;
+            filter: blur(2px);
         }
 
         .pull-cord-wrapper {
@@ -155,6 +157,26 @@
 
         .lamp-on .pull-hint { visibility: hidden; opacity: 0; }
 
+        .lamp-quote {
+            color: #444;
+            font-size: 0.65rem;
+            font-style: italic;
+            margin-top: 14px;
+            letter-spacing: 0.5px;
+            opacity: 0.5;
+            text-align: center;
+            white-space: nowrap;
+            user-select: none;
+            animation: hintPulse 3s ease-in-out infinite;
+            transition: opacity 2.5s ease 0.5s, visibility 0s linear 3s;
+        }
+
+        .lamp-on .lamp-quote {
+            animation: none;
+            opacity: 0;
+            visibility: hidden;
+        }
+
         @keyframes hintPulse {
             0%, 100% { opacity: 0.4; }
             50% { opacity: 0.9; }
@@ -179,9 +201,14 @@
         }
 
         .card-inner {
-            background: rgba(15, 20, 40, 0.92);
+            background: rgba(20, 26, 50, 0.88);
             backdrop-filter: blur(20px);
             padding: 2.5rem 2rem 2rem;
+            transition: background 0.8s ease;
+        }
+
+        .lamp-on .card-inner {
+            background: rgba(28, 34, 60, 0.9);
         }
 
         /* ---- Form Panels (login / register) ---- */
@@ -199,16 +226,17 @@
         }
 
         .card-title {
-            color: #e0e0e0;
+            color: #f0f0f0;
             font-size: 1.5rem;
             font-weight: 700;
             text-align: center;
             margin-bottom: 0.3rem;
             letter-spacing: 2px;
+            text-shadow: 0 0 20px var(--glow-color-soft, rgba(255,255,255,0.1));
         }
 
         .card-subtitle {
-            color: #777;
+            color: #999;
             font-size: 0.85rem;
             text-align: center;
             margin-bottom: 2rem;
@@ -220,7 +248,7 @@
 
         .form-group label {
             display: block;
-            color: #999;
+            color: #b0b0b0;
             font-size: 0.82rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
@@ -230,10 +258,10 @@
         .form-group input {
             width: 100%;
             padding: 0.7rem 1rem;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.09);
+            border: 1px solid rgba(255,255,255,0.15);
             border-radius: 8px;
-            color: #e0e0e0;
+            color: #f0f0f0;
             font-size: 0.95rem;
             outline: none;
             transition: all 0.3s ease;
@@ -268,9 +296,10 @@
         .form-group input::placeholder { color: #555; }
 
         .form-group input:focus {
-            border-color: var(--glow-color, rgba(100,200,150,0.6));
-            box-shadow: 0 0 0 3px var(--glow-color-soft, rgba(100,200,150,0.1));
-            background: rgba(255,255,255,0.08);
+            border-color: var(--glow-color, rgba(100,200,150,0.7));
+            box-shadow: 0 0 0 3px var(--glow-color-soft, rgba(100,200,150,0.15)),
+                        0 0 15px var(--glow-color-soft, rgba(100,200,150,0.08));
+            background: rgba(255,255,255,0.12);
         }
 
         .btn-action {
@@ -338,6 +367,46 @@
             color: var(--glow-color, #aaa);
         }
 
+        /* Mode Toggle */
+        .mode-toggle {
+            display: flex;
+            gap: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 0.55rem 0;
+            border: none;
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .mode-btn i {
+            margin-right: 4px;
+        }
+
+        .mode-btn:first-child {
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .mode-btn.active {
+            background: var(--btn-gradient, linear-gradient(135deg, #2a7a5a, #3ab07a));
+            color: #fff;
+        }
+
+        .mode-btn:not(.active):hover {
+            background: rgba(255,255,255,0.1);
+            color: #ccc;
+        }
+
         /* Ambient particles */
         .particle {
             position: absolute;
@@ -378,6 +447,7 @@
                 <div class="pull-cord-handle"></div>
                 <div class="pull-hint">PULL</div>
             </div>
+            <div class="lamp-quote">A thousand-year-old dark room is illuminated by a single lamp.</div>
         </div>
 
         <!-- Unified Card -->
@@ -399,6 +469,17 @@
                         <div class="input-wrapper">
                             <input type="password" id="loginPass" placeholder="Enter your password" required autocomplete="current-password">
                             <button type="button" class="toggle-password" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-bottom:0.6rem;">Mode</label>
+                        <div class="mode-toggle">
+                            <button type="button" class="mode-btn" data-mode="offline">
+                                <i class="bi bi-hdd"></i> Offline
+                            </button>
+                            <button type="button" class="mode-btn active" data-mode="online">
+                                <i class="bi bi-cloud"></i> Online
+                            </button>
                         </div>
                     </div>
                     <button type="submit" class="btn-action" id="loginBtn">Login</button>
@@ -448,12 +529,12 @@
     (function() {
         // ---- Color Themes ----
         var themes = [
-            { glow: 'rgba(100,220,160,0.55)', soft: 'rgba(100,220,160,0.12)', cone: 'rgba(100,220,160,0.035)', btn: 'linear-gradient(135deg,#1a6b4a,#2dbd7a)', border: 'rgba(100,220,160,0.25)', particle: '#64dca0', bg: '#0a1a14' },
-            { glow: 'rgba(100,180,255,0.55)', soft: 'rgba(100,180,255,0.12)', cone: 'rgba(100,180,255,0.035)', btn: 'linear-gradient(135deg,#1a4a8a,#3a8ae0)', border: 'rgba(100,180,255,0.25)', particle: '#64b4ff', bg: '#0a1220' },
-            { glow: 'rgba(255,180,100,0.55)', soft: 'rgba(255,180,100,0.12)', cone: 'rgba(255,180,100,0.035)', btn: 'linear-gradient(135deg,#8a5a1a,#e0a030)', border: 'rgba(255,180,100,0.25)', particle: '#ffb464', bg: '#1a140a' },
-            { glow: 'rgba(220,130,255,0.55)', soft: 'rgba(220,130,255,0.12)', cone: 'rgba(220,130,255,0.035)', btn: 'linear-gradient(135deg,#6a2a8a,#b050e0)', border: 'rgba(220,130,255,0.25)', particle: '#dc82ff', bg: '#150a1a' },
-            { glow: 'rgba(255,120,120,0.55)', soft: 'rgba(255,120,120,0.12)', cone: 'rgba(255,120,120,0.035)', btn: 'linear-gradient(135deg,#8a2a2a,#e04040)', border: 'rgba(255,120,120,0.25)', particle: '#ff7878', bg: '#1a0a0a' },
-            { glow: 'rgba(255,220,100,0.55)', soft: 'rgba(255,220,100,0.12)', cone: 'rgba(255,220,100,0.035)', btn: 'linear-gradient(135deg,#7a6a10,#e0c030)', border: 'rgba(255,220,100,0.25)', particle: '#ffdc64', bg: '#1a180a' },
+            { glow: 'rgba(100,220,160,0.7)', soft: 'rgba(100,220,160,0.2)', cone: 'rgba(100,220,160,0.06)', btn: 'linear-gradient(135deg,#1f7d55,#36d48e)', border: 'rgba(100,220,160,0.35)', particle: '#7ae8b4', bg: '#0c2018' },
+            { glow: 'rgba(100,180,255,0.7)', soft: 'rgba(100,180,255,0.2)', cone: 'rgba(100,180,255,0.06)', btn: 'linear-gradient(135deg,#2058a0,#4a9af0)', border: 'rgba(100,180,255,0.35)', particle: '#80c4ff', bg: '#0c1628' },
+            { glow: 'rgba(255,180,100,0.7)', soft: 'rgba(255,180,100,0.2)', cone: 'rgba(255,180,100,0.06)', btn: 'linear-gradient(135deg,#9a6820,#f0b040)', border: 'rgba(255,180,100,0.35)', particle: '#ffc478', bg: '#201a0c' },
+            { glow: 'rgba(220,130,255,0.7)', soft: 'rgba(220,130,255,0.2)', cone: 'rgba(220,130,255,0.06)', btn: 'linear-gradient(135deg,#7a35a0,#c060f0)', border: 'rgba(220,130,255,0.35)', particle: '#e696ff', bg: '#1a0c22' },
+            { glow: 'rgba(255,120,120,0.7)', soft: 'rgba(255,120,120,0.2)', cone: 'rgba(255,120,120,0.06)', btn: 'linear-gradient(135deg,#a03535,#f05050)', border: 'rgba(255,120,120,0.35)', particle: '#ff9090', bg: '#200c0c' },
+            { glow: 'rgba(255,220,100,0.7)', soft: 'rgba(255,220,100,0.2)', cone: 'rgba(255,220,100,0.06)', btn: 'linear-gradient(135deg,#8a7818,#f0d040)', border: 'rgba(255,220,100,0.35)', particle: '#ffe680', bg: '#201e0c' },
         ];
         var themeIndex = Math.floor(Math.random() * themes.length);
         var theme = themes[themeIndex];
@@ -479,10 +560,10 @@
         var isOn = false;
 
         // Generate particles
-        for (var i = 0; i < 25; i++) {
+        for (var i = 0; i < 35; i++) {
             var p = document.createElement('div');
             p.className = 'particle';
-            var size = 2 + Math.random() * 4;
+            var size = 2 + Math.random() * 5;
             p.style.width = size + 'px';
             p.style.height = size + 'px';
             p.style.background = theme.particle;
@@ -511,7 +592,7 @@
                 document.body.classList.add('lamp-on');
                 cardContainer.classList.add('visible');
                 cardContainer.style.borderColor = theme.border;
-                cardContainer.style.boxShadow = '0 20px 60px rgba(0,0,0,0.5), 0 0 40px ' + theme.soft;
+                cardContainer.style.boxShadow = '0 20px 60px rgba(0,0,0,0.4), 0 0 50px ' + theme.soft + ', 0 0 100px ' + theme.soft;
                 document.body.style.background = theme.bg;
                 setTimeout(function() {
                     var first = document.querySelector('.form-panel:not(.hidden) input');
@@ -558,6 +639,16 @@
         var loginError = document.getElementById('loginError');
         var loginBtn = document.getElementById('loginBtn');
 
+        // ---- Mode Toggle ----
+        var selectedMode = 'online';
+        document.querySelectorAll('.mode-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+                this.classList.add('active');
+                selectedMode = this.getAttribute('data-mode');
+            });
+        });
+
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             var username = document.getElementById('loginUser').value.trim();
@@ -576,7 +667,7 @@
                 var response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username, password: password })
+                    body: JSON.stringify({ username: username, password: password, mode: selectedMode })
                 });
                 var data = await response.json();
                 if (data.success) {

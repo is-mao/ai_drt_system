@@ -183,21 +183,60 @@ if (-not (Test-Path $EnvFile)) {
     Write-Log ".env file not found, using defaults." "WARN"
 }
 
-# Check dependencies
-Write-Log "Checking dependencies..."
-Push-Location $ScriptDir
-$depCheck = & $python -c "import flask; print('OK')" 2>$null
-Pop-Location
-if ("$depCheck".Trim() -ne "OK") {
-    Write-Log "Missing dependencies. Installing from requirements.txt..." "WARN"
-    $reqFile = Join-Path $ScriptDir "requirements.txt"
-    if (Test-Path $reqFile) {
+# Check dependencies against requirements.txt
+$reqFile = Join-Path $ScriptDir "requirements.txt"
+if (-not (Test-Path $reqFile)) {
+    Write-Host "ERROR: requirements.txt not found." -ForegroundColor Red
+    exit 1
+}
+
+Write-Log "Checking dependencies from requirements.txt..."
+$missingPkgs = @()
+Get-Content $reqFile -Encoding UTF8 | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith("#")) {
+        # Extract package name (before ==, >=, <=, ~=, !=, etc.)
+        $pkgName = ($line -split '[><=!~]')[0].Trim()
+        if ($pkgName) {
+            $check = & $python -m pip show $pkgName 2>$null
+            if (-not $check) {
+                $missingPkgs += $line
+            }
+        }
+    }
+}
+
+if ($missingPkgs.Count -gt 0) {
+    Write-Host ""
+    Write-Host "The following dependencies are missing:" -ForegroundColor Yellow
+    foreach ($pkg in $missingPkgs) {
+        Write-Host "  - $pkg" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    $answer = Read-Host "Install missing dependencies now? (Y/N)"
+    if ($answer -match '^[Yy]') {
+        Write-Log "Installing dependencies from requirements.txt..."
         & $python -m pip install -r $reqFile 2>&1 | Out-File -Append $LogFile -Encoding UTF8
-        Write-Log "Dependencies installed."
+        # Verify installation succeeded
+        $stillMissing = @()
+        foreach ($pkg in $missingPkgs) {
+            $pkgName = ($pkg -split '[><=!~]')[0].Trim()
+            $check = & $python -m pip show $pkgName 2>$null
+            if (-not $check) { $stillMissing += $pkg }
+        }
+        if ($stillMissing.Count -gt 0) {
+            Write-Host "ERROR: Failed to install: $($stillMissing -join ', ')" -ForegroundColor Red
+            Write-Log "Dependency installation incomplete: $($stillMissing -join ', ')" "ERROR"
+            exit 1
+        }
+        Write-Log "All dependencies installed successfully."
     } else {
-        Write-Host "ERROR: requirements.txt not found." -ForegroundColor Red
+        Write-Host "Startup cancelled. Dependencies are required to run DRT System." -ForegroundColor Red
+        Write-Log "User declined dependency installation. Startup aborted." "WARN"
         exit 1
     }
+} else {
+    Write-Log "All dependencies are installed."
 }
 
 # Check port availability (ignore TIME_WAIT/CLOSE_WAIT which show PID 0)

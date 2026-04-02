@@ -79,26 +79,13 @@
             {% endif %}
         </div>
         <div class="navbar-right">
-            {% if session.get('login_source') == 'local' %}
-            <span class="badge bg-warning text-dark me-2" style="font-size:0.7rem;" title="Logged in via local database (network unavailable)">
-                <i class="bi bi-wifi-off"></i> Offline
-            </span>
-            {% endif %}
-            {% if session.get('role') == 'superadmin' %}
-            <span class="badge bg-info text-dark me-2" style="font-size:0.7rem;">
-                <i class="bi bi-database"></i> MySQL + Remote
-            </span>
-            {% elif session.get('db_access') == 'both' %}
-            <span class="badge bg-info text-dark me-2" style="font-size:0.7rem;">
-                <i class="bi bi-hdd"></i> SQLite + Remote
-            </span>
-            {% elif session.get('db_access') == 'remote' %}
+            {% if session.get('mode') == 'online' %}
             <span class="badge bg-success me-2" style="font-size:0.7rem;">
-                <i class="bi bi-cloud"></i> Remote
+                <i class="bi bi-cloud"></i> Online
             </span>
             {% else %}
             <span class="badge bg-secondary me-2" style="font-size:0.7rem;">
-                <i class="bi bi-hdd"></i> SQLite
+                <i class="bi bi-hdd"></i> Offline
             </span>
             {% endif %}
             <span class="navbar-user">

@@ -13,13 +13,6 @@
         <div class="page-subtitle">Records imported from Cesium awaiting completion</div>
     </div>
     <div class="d-flex gap-2 align-items-center">
-        {% set can_toggle = session.get('role') == 'superadmin' or session.get('db_access') in ('remote', 'both') %}
-        {% if can_toggle %}
-        <div class="btn-group btn-group-sm" id="sourceToggle" role="group" aria-label="Data source">
-            <button type="button" class="btn btn-sm btn-outline-secondary active" data-source="local"><i class="bi bi-hdd me-1"></i>Local</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-source="remote"><i class="bi bi-cloud me-1"></i>Remote</button>
-        </div>
-        {% endif %}
         <button type="button" class="btn btn-sm btn-outline-danger d-none" id="batchDeleteBtn"><i class="bi bi-trash me-1"></i>Delete (<span id="selectedCount">0</span>)</button>
         <button type="button" class="btn btn-sm btn-outline-primary" id="refreshDraftsBtn"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
     </div>
@@ -136,8 +129,8 @@
 (function () {
     var isSuperadmin = {{ 'true' if session.get('role') == 'superadmin' else 'false' }};
     var colSpan = isSuperadmin ? 16 : 15;
-    var canToggle = {{ 'true' if session.get('role') == 'superadmin' or session.get('db_access') in ('remote', 'both') else 'false' }};
-    var currentSource = 'local';
+    var canToggle = false;
+    var currentSource = {{ ('online' if session.get('mode') == 'online' else 'offline')|tojson|safe }};
     function showToast(message, type) {
         const toastEl = document.getElementById('appToast');
         const toastMsg = document.getElementById('toastMessage');
@@ -221,6 +214,8 @@
                 '</svg>No pending records.</td></tr>';
             document.getElementById('draftsPagInfo').textContent = '';
             document.getElementById('draftsPagination').innerHTML = '';
+            document.getElementById('selectAllDrafts').checked = false;
+            updateSelectState();
             return;
         }
 

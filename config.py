@@ -8,29 +8,12 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 class Config:
     SECRET_KEY = os.environ.get("DRT_SECRET_KEY") or secrets.token_hex(32)
 
-    # Primary DB: MySQL (ismao's local). SQLite/Remote for other users via db_routing.
+    # Remote DB (Supabase / PostgreSQL) for online mode
     DATABASE_URL = os.environ.get("DATABASE_URL", "")
-    SQLITE_URI = "sqlite:///" + os.path.join(BASE_DIR, "drt_system.db")
-    DB_TYPE = os.environ.get("DRT_DB_TYPE", "mysql").lower()
 
-    if DB_TYPE == "mysql":
-        MYSQL_HOST = os.environ.get("DRT_MYSQL_HOST", "localhost")
-        MYSQL_PORT = int(os.environ.get("DRT_MYSQL_PORT", 3306))
-        MYSQL_USER = os.environ.get("DRT_MYSQL_USER", "")
-        MYSQL_PASSWORD = os.environ.get("DRT_MYSQL_PASSWORD", "")
-        MYSQL_DB = os.environ.get("DRT_MYSQL_DB", "ai_drt_system")
-        SQLALCHEMY_DATABASE_URI = (
-            f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}?charset=utf8mb4"
-        )
-    elif DB_TYPE == "postgresql":
-        PG_HOST = os.environ.get("DRT_PG_HOST", "localhost")
-        PG_PORT = int(os.environ.get("DRT_PG_PORT", 5432))
-        PG_USER = os.environ.get("DRT_PG_USER", "")
-        PG_PASSWORD = os.environ.get("DRT_PG_PASSWORD", "")
-        PG_DB = os.environ.get("DRT_PG_DB", "ai_drt_system")
-        SQLALCHEMY_DATABASE_URI = f"postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DB}"
-    else:
-        SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(BASE_DIR, "drt_system.db")
+    # Local DB: always SQLite (zero-config, portable)
+    SQLITE_URI = "sqlite:///" + os.path.join(BASE_DIR, "drt_system.db")
+    SQLALCHEMY_DATABASE_URI = SQLITE_URI
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

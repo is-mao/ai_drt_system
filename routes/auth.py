@@ -9,7 +9,12 @@ from services.db_routing import (
     delete_user_from_remote,
     get_user_from_remote,
     update_user_login_remote,
+    is_remote_configured,
+    register_user_to_remote,
 )
+
+# The sole offline account — hardcoded, never synced to remote
+OFFLINE_USERNAME = "cisco"
 
 auth_bp = Blueprint("auth", __name__, url_prefix="")
 
@@ -54,6 +59,7 @@ def register_page():
 
 @auth_bp.route("/api/auth/register", methods=["POST"])
 def api_register():
+    """Register a new online account (written to remote DB only, not local)."""
     data = request.get_json()
     if not data:
         return jsonify({"success": False, "error": "Invalid request body"}), 400
@@ -70,27 +76,19 @@ def api_register():
     if len(password) < 8:
         return jsonify({"success": False, "error": "Password must be at least 8 characters"}), 400
 
-    if User.query.filter_by(username=username).first():
-        return jsonify({"success": False, "error": "Username already exists"}), 409
+    # Block the reserved offline account name
+    if username.lower() == OFFLINE_USERNAME:
+        return jsonify({"success": False, "error": "This username is reserved"}), 409
 
-    user = User(username=username, role="user", is_active=False)
-    user.set_password(password)
-    db.session.add(user)
-    db.session.commit()
+    # Register directly to remote — never store in local
+    from werkzeug.security import generate_password_hash
 
-    # Sync new user to remote
-    sync_user_to_remote(
-        {
-            "id": user.id,
-            "username": user.username,
-            "password_hash": user.password_hash,
-            "role": user.role,
-            "db_access": user.db_access,
-            "is_active": user.is_active,
-        }
-    )
+    password_hash = generate_password_hash(password, method="pbkdf2:sha256")
+    ok, msg = register_user_to_remote(username, password_hash)
+    if not ok:
+        return jsonify({"success": False, "error": msg}), 409
 
-    return jsonify({"success": True, "message": "Registration successful. Please wait for admin approval."})
+    return jsonify({"success": True, "message": msg})
 
 
 @auth_bp.route("/api/auth/login", methods=["POST"])
@@ -102,75 +100,71 @@ def api_login():
 
     username = data.get("username", "").strip()
     password = data.get("password", "")
+    mode = data.get("mode", "offline").strip().lower()  # "offline" or "online"
+
+    if mode not in ("offline", "online"):
+        mode = "offline"
 
     if not username or not password:
         return jsonify({"success": False, "error": "Username and password are required"}), 400
 
-    # --- Remote-first authentication ---
-    # Try remote DB first; fall back to local if network is unavailable.
-    remote_user = get_user_from_remote(username)
-    if remote_user and check_password_hash(remote_user["password_hash"], password):
+    if mode == "online":
+        # --- Online mode: authenticate against remote DB only ---
+        remote_user = get_user_from_remote(username)
+        if not remote_user:
+            return jsonify({"success": False, "error": "Unable to connect to remote server, or user not found."}), 401
+
+        if not check_password_hash(remote_user["password_hash"], password):
+            return jsonify({"success": False, "error": "Invalid username or password"}), 401
+
         if not remote_user["is_active"]:
             return jsonify({"success": False, "error": "Account is pending approval. Please contact admin."}), 403
 
         now = datetime.now()
         update_user_login_remote(remote_user["id"], now)
 
-        # Sync remote user data to local SQLite so future local fallback has correct permissions
-        try:
-            local_user = User.query.filter_by(username=username).first()
-            if local_user:
-                local_user.role = remote_user["role"]
-                local_user.db_access = remote_user.get("db_access", "sqlite")
-                local_user.is_active = bool(remote_user.get("is_active", True))
-                local_user.last_login = now
-                db.session.commit()
-            else:
-                local_user = User(
-                    username=remote_user["username"],
-                    role=remote_user["role"],
-                    db_access=remote_user.get("db_access", "sqlite"),
-                    is_active=bool(remote_user.get("is_active", True)),
-                    password_hash=remote_user["password_hash"],
-                )
-                local_user.last_login = now
-                db.session.add(local_user)
-                db.session.commit()
-        except Exception:
-            pass
-
         session.permanent = True
         session["user_id"] = remote_user["id"]
         session["username"] = remote_user["username"]
         session["role"] = remote_user["role"]
-        session["db_access"] = remote_user.get("db_access", "sqlite")
-        session["login_source"] = "remote"
+        session["mode"] = "online"
 
-        return jsonify({"success": True, "message": "Login successful", "login_source": "remote", "user": remote_user})
+        return jsonify(
+            {
+                "success": True,
+                "message": "Login successful (online mode)",
+                "mode": "online",
+                "user": remote_user,
+            }
+        )
 
-    # --- Local fallback ---
-    # Remote returned None (network error) or user not found / wrong password.
-    user = User.query.filter_by(username=username).first()
+    else:
+        # --- Offline mode: only the reserved cisco account ---
+        if username.lower() != OFFLINE_USERNAME:
+            return jsonify({"success": False, "error": "Offline mode only supports the default cisco account."}), 401
 
-    if not user or not user.check_password(password):
-        return jsonify({"success": False, "error": "Invalid username or password"}), 401
+        user = User.query.filter_by(username=OFFLINE_USERNAME).first()
 
-    if not user.is_active:
-        return jsonify({"success": False, "error": "Account is pending approval. Please contact admin."}), 403
+        if not user or not user.check_password(password):
+            return jsonify({"success": False, "error": "Invalid username or password"}), 401
 
-    user.last_login = datetime.now()
-    db.session.commit()
+        user.last_login = datetime.now()
+        db.session.commit()
 
-    session.permanent = True
-    session["user_id"] = user.id
-    session["username"] = user.username
-    session["role"] = user.role
-    session["db_access"] = user.db_access
-    session["login_source"] = "local"
+        session.permanent = True
+        session["user_id"] = user.id
+        session["username"] = user.username
+        session["role"] = user.role
+        session["mode"] = "offline"
 
-    return jsonify(
-        {"success": True, "message": "Login successful (offline mode)", "login_source": "local", "user": user.to_dict()}
-    )
+        return jsonify(
+            {
+                "success": True,
+                "message": "Login successful (offline mode)",
+                "mode": "offline",
+                "user": user.to_dict(),
+            }
+        )
 
 
 @auth_bp.route("/api/auth/logout", methods=["POST"])
@@ -228,9 +222,6 @@ def update_user(user_id):
         # Only allow setting user, not superadmin
         if user.role != "superadmin":
             user.role = data["role"]
-    if "db_access" in data and data["db_access"] in ("sqlite", "remote", "both"):
-        if user.role != "superadmin":
-            user.db_access = data["db_access"]
 
     db.session.commit()
 
@@ -241,7 +232,6 @@ def update_user(user_id):
             "username": user.username,
             "password_hash": user.password_hash,
             "role": user.role,
-            "db_access": user.db_access,
             "is_active": user.is_active,
         }
     )

@@ -1,8 +1,9 @@
-"""Per-user database routing service.
+"""Database routing service.
 
 Architecture:
-- ismao (superadmin): MySQL (primary via Flask-SQLAlchemy) + auto-sync to Remote (Supabase)
-- Other users: SQLite or Remote, as assigned by ismao via db_access field
+- Offline mode: SQLite (local, zero-config) via Flask-SQLAlchemy db.session
+- Online mode: Remote database (Supabase/PostgreSQL) via DATABASE_URL
+- All users follow the same routing. Superadmin has no special DB treatment.
 """
 
 import os
@@ -13,24 +14,9 @@ from sqlalchemy.orm import sessionmaker
 
 logger = logging.getLogger(__name__)
 
-# Lazy-initialized engines
-_sqlite_engine = None
-_sqlite_session_factory = None
+# Lazy-initialized remote engine
 _remote_engine = None
 _remote_session_factory = None
-
-
-def _get_sqlite_engine():
-    global _sqlite_engine, _sqlite_session_factory
-    if _sqlite_engine is not None:
-        return _sqlite_engine, _sqlite_session_factory
-    from config import Config
-
-    uri = Config.SQLITE_URI
-    _sqlite_engine = create_engine(uri)
-    _sqlite_session_factory = sessionmaker(bind=_sqlite_engine)
-    logger.info("SQLite engine initialized: %s", uri)
-    return _sqlite_engine, _sqlite_session_factory
 
 
 def reset_remote_engine():
@@ -54,6 +40,7 @@ def _get_remote_engine():
         # Fallback: check system_config table for database_url
         try:
             from models.system_config import SystemConfig
+
             remote_url = SystemConfig.get_value("database_url", "") or ""
         except Exception:
             pass
@@ -99,89 +86,42 @@ class UserDB:
                 pass
 
 
-def get_db_for_source(source):
-    """Get a UserDB for an explicit data source ('local' or 'remote').
+def is_remote_configured():
+    """Return True if a remote DATABASE_URL is available (env or system_config)."""
+    if os.environ.get("DATABASE_URL", ""):
+        return True
+    try:
+        from models.system_config import SystemConfig
 
-    Used by the data-source toggle on Defects / Pending pages.
-    Callers are responsible for closing the returned session (via cleanup_user_db).
-    """
-    from models import db
-
-    if source == "remote":
-        _, factory = _get_remote_engine()
-        if factory:
-            return UserDB(factory(), is_primary=False, sync_remote=False)
-
-    # For superadmin, "local" means MySQL (primary db), not SQLite
-    role = flask_session.get("role")
-    if role == "superadmin":
-        return UserDB(db.session, is_primary=True, sync_remote=True)
-
-    # For other users, "local" means SQLite
-    _, factory = _get_sqlite_engine()
-    if factory:
-        return UserDB(factory(), is_primary=False, sync_remote=False)
-    return UserDB(db.session, is_primary=True, sync_remote=False)
-
-
-def _resolve_source_override():
-    """Check if the request has a `source` query param and the user is allowed to use it."""
-    from flask import request
-
-    source = request.args.get("source", "").strip().lower()
-    if source not in ("local", "remote"):
-        return None
-    # Only users with remote / both access (or superadmin) may switch
-    role = flask_session.get("role")
-    db_access = flask_session.get("db_access", "sqlite")
-    if role == "superadmin" or db_access in ("remote", "both"):
-        return source
-    return None
+        return bool(SystemConfig.get_value("database_url", ""))
+    except Exception:
+        return False
 
 
 def get_user_db():
     """Get the UserDB adapter for the current request's user.
 
-    Respects an optional `?source=local|remote` query parameter for users
-    who have the appropriate db_access permission.
+    Routing based on session['mode']:
+    - online: Remote database via global DATABASE_URL
+    - offline (default): SQLite
     """
     if "user_db" in g:
         return g.user_db
 
     from models import db
 
-    # Check for explicit source override from the toggle
-    source_override = _resolve_source_override()
-    if source_override:
-        udb = get_db_for_source(source_override)
-        g.user_db = udb
-        return udb
+    mode = flask_session.get("mode", "offline")
 
-    role = flask_session.get("role")
-
-    if role == "superadmin":
-        udb = UserDB(db.session, is_primary=True, sync_remote=True)
-    else:
-        db_access = flask_session.get("db_access", "sqlite")
-        if db_access == "both":
-            # Admin: SQLite primary + remote sync
-            _, factory = _get_sqlite_engine()
-            if factory:
-                udb = UserDB(factory(), is_primary=False, sync_remote=True)
-            else:
-                udb = UserDB(db.session, is_primary=True, sync_remote=True)
-        elif db_access == "remote":
-            _, factory = _get_remote_engine()
-            if factory:
-                udb = UserDB(factory(), is_primary=False, sync_remote=False)
-            else:
-                udb = UserDB(db.session, is_primary=True, sync_remote=False)
+    if mode == "online":
+        _, factory = _get_remote_engine()
+        if factory:
+            udb = UserDB(factory(), is_primary=False, sync_remote=False)
         else:
-            _, factory = _get_sqlite_engine()
-            if factory:
-                udb = UserDB(factory(), is_primary=False, sync_remote=False)
-            else:
-                udb = UserDB(db.session, is_primary=True, sync_remote=False)
+            logger.warning("Online mode but no DATABASE_URL configured, falling back to SQLite")
+            udb = UserDB(db.session, is_primary=True, sync_remote=False)
+    else:
+        # offline mode — use SQLite (which is the primary db.session)
+        udb = UserDB(db.session, is_primary=True, sync_remote=False)
 
     g.user_db = udb
     return udb
@@ -267,6 +207,50 @@ def sync_delete_to_remote(report_id):
 # ---------------------------------------------------------------------------
 # User sync helpers (sync user table to Remote for multi-machine auth)
 # ---------------------------------------------------------------------------
+
+
+def register_user_to_remote(username, password_hash, role="user", is_active=False):
+    """Register a new user directly to the remote database.
+
+    Returns (True, message) on success, (False, error) on failure.
+    """
+    engine, _ = _get_remote_engine()
+    if not engine:
+        return False, "Remote database is not configured. Cannot register online accounts."
+    try:
+        sess = _remote_session_factory()
+        try:
+            # Check if username already exists
+            row = sess.execute(
+                text("SELECT id FROM users WHERE username = :u"),
+                {"u": username},
+            ).fetchone()
+            if row:
+                return False, "Username already exists"
+            sess.execute(
+                text(
+                    "INSERT INTO users (username, password_hash, role, is_active) "
+                    "VALUES (:username, :password_hash, :role, :is_active)"
+                ),
+                {
+                    "username": username,
+                    "password_hash": password_hash,
+                    "role": role,
+                    "is_active": is_active,
+                },
+            )
+            sess.commit()
+            logger.info("User '%s' registered to remote.", username)
+            return True, "Registration successful. Please wait for admin approval."
+        except Exception as e:
+            sess.rollback()
+            logger.warning("Remote registration failed: %s", e)
+            return False, "Registration failed. Please try again later."
+        finally:
+            sess.close()
+    except Exception as e:
+        logger.warning("Remote registration failed (session): %s", e)
+        return False, "Unable to connect to remote server."
 
 
 def sync_user_to_remote(user_dict):
@@ -383,17 +367,11 @@ def update_user_login_remote(user_id, last_login):
 
 
 def init_all_tables():
-    """Create defect_reports table in SQLite and Remote databases. Never raises."""
-    from models import db
+    """Create tables in remote database (if configured). Never raises.
 
-    # SQLite
-    try:
-        engine, _ = _get_sqlite_engine()
-        if engine:
-            db.metadata.create_all(bind=engine)
-            logger.info("SQLite tables synced.")
-    except Exception as e:
-        logger.warning("SQLite table creation failed: %s", e)
+    SQLite tables are handled by Flask-SQLAlchemy db.create_all() in app.py.
+    """
+    from models import db
 
     # Remote
     try:

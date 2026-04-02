@@ -81,17 +81,16 @@ def create_app():
 
 
 def _migrate_columns(app):
-    """Auto-add missing columns to existing tables."""
+    """Auto-add missing columns to existing SQLite tables."""
     from sqlalchemy import text, inspect
 
     MIGRATIONS = {
         "defect_reports": {"sequence_log": "TEXT", "buffer_log": "TEXT"},
-        "users": {"is_active": "BOOLEAN", "db_access": "VARCHAR(20)"},
+        "users": {"is_active": "BOOLEAN DEFAULT 1"},
     }
 
     try:
         inspector = inspect(db.engine)
-        dialect = db.engine.dialect.name
         with db.engine.connect() as conn:
             for table, columns in MIGRATIONS.items():
                 try:
@@ -100,22 +99,7 @@ def _migrate_columns(app):
                     continue
                 for col_name, col_type in columns.items():
                     if col_name not in existing:
-                        if dialect == "sqlite":
-                            if col_type == "BOOLEAN":
-                                default = " DEFAULT 1"
-                            elif col_type == "VARCHAR(20)":
-                                default = " DEFAULT 'sqlite'"
-                            else:
-                                default = ""
-                            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}{default}"))
-                        else:
-                            if col_type == "BOOLEAN":
-                                default = " DEFAULT TRUE"
-                            elif col_type == "VARCHAR(20)":
-                                default = " DEFAULT 'sqlite'"
-                            else:
-                                default = " NULL"
-                            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}{default}"))
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
                         conn.commit()
                         app.logger.info(f"Added missing column: {table}.{col_name}")
     except Exception as e:
@@ -133,11 +117,12 @@ def _seed_defaults():
         db.session.add(sa)
         db.session.commit()
 
-    # Seed default admin if no other users exist (besides superadmin)
-    if User.query.filter(User.role != "superadmin").count() == 0:
-        admin = User(username="admin", role="admin", is_active=True)
-        admin.set_password("admin123")
-        db.session.add(admin)
+    # Seed the default offline account (cisco/cisco) — the only local account for offline mode
+    cisco = User.query.filter_by(username="cisco").first()
+    if not cisco:
+        cisco = User(username="cisco", role="user", is_active=True)
+        cisco.set_password("cisco")
+        db.session.add(cisco)
         db.session.commit()
 
     # Ensure existing users without is_active flag are set to active

@@ -35,7 +35,6 @@
                     <th>ID</th>
                     <th>Username</th>
                     <th>Role</th>
-                    <th>Data Source</th>
                     <th>Status</th>
                     <th>Last Login</th>
                     <th>Created</th>
@@ -94,25 +93,12 @@
                     ? '<span class="badge bg-danger">Superadmin</span>'
                     : '<span class="badge bg-secondary">User</span>';
 
-                const dbBadge = isSuperadmin
-                    ? '<span class="badge bg-info text-dark">MySQL + Remote</span>'
-                    : u.db_access === 'both'
-                    ? '<span class="badge bg-info text-dark">SQLite + Remote</span>'
-                    : u.db_access === 'remote'
-                    ? '<span class="badge bg-success">Remote</span>'
-                    : '<span class="badge bg-secondary">SQLite</span>';
-
                 let actions = '';
                 if (!isSuperadmin) {
                     const toggleLabel = u.is_active ? 'Deactivate' : 'Activate';
                     const toggleIcon = u.is_active ? 'bi-pause-circle' : 'bi-play-circle';
                     const toggleClass = u.is_active ? 'btn-outline-warning' : 'btn-outline-success';
                     actions += `<button class="btn ${toggleClass} btn-sm me-1" onclick="toggleUser(${u.id}, ${!u.is_active})"><i class="bi ${toggleIcon} me-1"></i>${toggleLabel}</button>`;
-
-                    const dbToggle = u.db_access === 'remote'
-                        ? `<button class="btn btn-outline-secondary btn-sm me-1" onclick="setDbAccess(${u.id}, 'sqlite')" title="Switch to SQLite"><i class="bi bi-database me-1"></i>\u2192SQLite</button>`
-                        : `<button class="btn btn-outline-info btn-sm me-1" onclick="setDbAccess(${u.id}, 'remote')" title="Switch to Remote"><i class="bi bi-cloud me-1"></i>\u2192Remote</button>`;
-                    actions += dbToggle;
 
                     actions += `<button class="btn btn-outline-danger btn-sm" onclick="deleteUser(${u.id}, '${esc(u.username)}')"><i class="bi bi-trash"></i></button>`;
                 } else {
@@ -123,7 +109,6 @@
                     <td>${u.id}</td>
                     <td><strong>${esc(u.username)}</strong></td>
                     <td>${roleBadge}</td>
-                    <td>${dbBadge}</td>
                     <td>${statusBadge}</td>
                     <td>${esc(u.last_login || '—')}</td>
                     <td>${esc(u.created_at || '')}</td>
@@ -147,10 +132,6 @@
 
     window.setRole = async function(id, role) {
         await updateUser(id, {role: role});
-    };
-
-    window.setDbAccess = async function(id, db_access) {
-        await updateUser(id, {db_access: db_access});
     };
 
     async function updateUser(id, data) {
