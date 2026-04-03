@@ -302,6 +302,114 @@
             background: rgba(255,255,255,0.12);
         }
 
+        /* ---- Custom BU Select Dropdown ---- */
+        .custom-select-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .custom-select-trigger {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            background: rgba(255,255,255,0.09);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: #555;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            outline: none;
+            user-select: none;
+        }
+
+        .custom-select-trigger.has-value {
+            color: #f0f0f0;
+        }
+
+        .custom-select-trigger:hover {
+            border-color: rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.11);
+        }
+
+        .custom-select-trigger:focus,
+        .custom-select-wrapper.open .custom-select-trigger {
+            border-color: var(--glow-color, rgba(100,200,150,0.7));
+            box-shadow: 0 0 0 3px var(--glow-color-soft, rgba(100,200,150,0.15)),
+                        0 0 15px var(--glow-color-soft, rgba(100,200,150,0.08));
+            background: rgba(255,255,255,0.12);
+        }
+
+        .custom-select-arrow {
+            color: #888;
+            transition: transform 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .custom-select-wrapper.open .custom-select-arrow {
+            transform: rotate(180deg);
+        }
+
+        .custom-select-options {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: rgba(22, 28, 52, 0.97);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            overflow-y: auto;
+            max-height: 220px;
+            z-index: 100;
+            box-shadow: 0 -8px 36px rgba(0,0,0,0.5), 0 0 20px var(--glow-color-soft, rgba(100,200,150,0.06));
+            animation: dropdownSlideUp 0.2s ease;
+        }
+
+        @keyframes dropdownSlideUp {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .custom-select-wrapper.open .custom-select-options {
+            display: block;
+        }
+
+        .custom-select-options::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-select-options::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-select-options::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 3px;
+        }
+
+        .custom-select-option {
+            padding: 0.65rem 1rem;
+            color: #c0c0c0;
+            font-size: 0.93rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .custom-select-option:hover {
+            background: var(--glow-color-soft, rgba(100,200,150,0.15));
+            color: #fff;
+        }
+
+        .custom-select-option.selected {
+            background: var(--glow-color-soft, rgba(100,200,150,0.2));
+            color: var(--glow-color, #7ae8b4);
+            font-weight: 600;
+        }
+
         .btn-action {
             width: 100%;
             padding: 0.75rem;
@@ -516,12 +624,20 @@
                     </div>
                     <div class="form-group">
                         <label for="regBU">Business Unit</label>
-                        <select id="regBU" required style="width:100%;padding:0.7rem 1rem;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e0e0e0;font-size:0.95rem;outline:none;transition:all 0.3s ease;appearance:auto;">
-                            <option value="" disabled selected>Select your BU</option>
-                            {% for bu in bu_options %}
-                            <option value="{{ bu }}">{{ bu }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="custom-select-wrapper" id="buSelectWrapper">
+                            <div class="custom-select-trigger" id="buSelectTrigger" tabindex="0">
+                                <span id="buSelectLabel">Select your BU</span>
+                                <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </div>
+                            <div class="custom-select-options" id="buSelectOptions">
+                                {% for bu in bu_options %}
+                                <div class="custom-select-option" data-value="{{ bu }}">
+                                    <i class="bi bi-building me-2" style="opacity:0.5;"></i>{{ bu }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <input type="hidden" id="regBU" name="bu" value="">
+                        </div>
                     </div>
                     <button type="submit" class="btn-action" id="regBtn">Register</button>
                 </form>
@@ -691,6 +807,48 @@
                 loginBtn.textContent = 'Login';
             }
         });
+
+        // ---- Custom BU Dropdown ----
+        (function() {
+            var wrapper = document.getElementById('buSelectWrapper');
+            var trigger = document.getElementById('buSelectTrigger');
+            var label = document.getElementById('buSelectLabel');
+            var options = document.getElementById('buSelectOptions');
+            var hidden = document.getElementById('regBU');
+            var items = options.querySelectorAll('.custom-select-option');
+
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                wrapper.classList.toggle('open');
+            });
+
+            trigger.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    wrapper.classList.toggle('open');
+                } else if (e.key === 'Escape') {
+                    wrapper.classList.remove('open');
+                }
+            });
+
+            items.forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var val = this.getAttribute('data-value');
+                    hidden.value = val;
+                    label.textContent = val;
+                    trigger.classList.add('has-value');
+                    items.forEach(function(i) { i.classList.remove('selected'); });
+                    this.classList.add('selected');
+                    wrapper.classList.remove('open');
+                });
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!wrapper.contains(e.target)) {
+                    wrapper.classList.remove('open');
+                }
+            });
+        })();
 
         // ---- Register Logic ----
         var registerForm = document.getElementById('registerForm');

@@ -5,7 +5,13 @@ from models import db
 from models.defect_report import DefectReport
 from routes.auth import login_required
 from config import Config
-from services.db_routing import get_user_db, sync_to_remote, sync_update_to_remote, sync_delete_to_remote, sync_all_local_to_remote
+from services.db_routing import (
+    get_user_db,
+    sync_to_remote,
+    sync_update_to_remote,
+    sync_delete_to_remote,
+    sync_all_local_to_remote,
+)
 
 defects_bp = Blueprint("defects", __name__, url_prefix="")
 
@@ -377,9 +383,11 @@ def api_sync_local_to_remote():
     if error:
         return jsonify({"success": False, "error": error, "synced": synced, "skipped": skipped}), 500
 
-    return jsonify({
-        "success": True,
-        "synced": synced,
-        "skipped": skipped,
-        "message": f"Sync complete: {synced} new records pushed, {skipped} duplicates skipped.",
-    })
+    return jsonify(
+        {
+            "success": True,
+            "synced": synced,
+            "skipped": skipped,
+            "message": f"Sync complete: {synced} new records pushed, {skipped} duplicates skipped.",
+        }
+    )

@@ -239,8 +239,11 @@
                 });
             }
 
-            // Load pending badge count
-            fetch('/api/draft-records?per_page=1&page=1')
+            // Load pending badge count (filtered by user's BU)
+            var pendingBuParam = {{ session.get('user_bu', '')|tojson }};
+            var pendingUrl = '/api/draft-records?per_page=1&page=1';
+            if (pendingBuParam) pendingUrl += '&bu=' + encodeURIComponent(pendingBuParam);
+            fetch(pendingUrl)
                 .then(r => r.json())
                 .then(d => {
                     const badge = document.getElementById('navPendingBadge');

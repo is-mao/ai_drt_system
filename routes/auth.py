@@ -192,16 +192,18 @@ def auth_status():
         mode = session.get("mode", "offline")
         if mode == "online":
             # Online users: return session data (user record is in remote DB, not local)
-            return jsonify({
-                "authenticated": True,
-                "user": {
-                    "id": session["user_id"],
-                    "username": session.get("username", ""),
-                    "role": session.get("role", "user"),
-                    "bu": session.get("user_bu", ""),
-                    "is_active": True,
-                },
-            })
+            return jsonify(
+                {
+                    "authenticated": True,
+                    "user": {
+                        "id": session["user_id"],
+                        "username": session.get("username", ""),
+                        "role": session.get("role", "user"),
+                        "bu": session.get("user_bu", ""),
+                        "is_active": True,
+                    },
+                }
+            )
         else:
             user = User.query.get(session["user_id"])
             if user:

@@ -442,10 +442,7 @@ def update_remote_user(user_id, updates):
 
             # Fetch updated row
             updated = sess.execute(
-                text(
-                    "SELECT id, username, role, bu, is_active, last_login, created_at "
-                    "FROM users WHERE id = :_id"
-                ),
+                text("SELECT id, username, role, bu, is_active, last_login, created_at " "FROM users WHERE id = :_id"),
                 {"_id": user_id},
             ).fetchone()
             if updated:
@@ -552,6 +549,7 @@ def _migrate_remote_columns(engine):
 # Bulk sync: push all local (SQLite) defect reports → remote database
 # ---------------------------------------------------------------------------
 
+
 def sync_all_local_to_remote():
     """Read all defect_reports from local SQLite and upsert to remote DB.
 
@@ -570,11 +568,28 @@ def sync_all_local_to_remote():
         return 0, 0, None  # nothing to sync
 
     columns = [
-        "bu", "week_number", "pcap_n", "station", "server", "sn",
-        "record_time", "failure", "defect_class", "defect_value",
-        "root_cause", "action", "pn", "component_sn", "log_content",
-        "sequence_log", "buffer_log", "ai_root_cause", "status",
-        "created_by", "created_at", "updated_at",
+        "bu",
+        "week_number",
+        "pcap_n",
+        "station",
+        "server",
+        "sn",
+        "record_time",
+        "failure",
+        "defect_class",
+        "defect_value",
+        "root_cause",
+        "action",
+        "pn",
+        "component_sn",
+        "log_content",
+        "sequence_log",
+        "buffer_log",
+        "ai_root_cause",
+        "status",
+        "created_by",
+        "created_at",
+        "updated_at",
     ]
 
     try:
@@ -586,9 +601,7 @@ def sync_all_local_to_remote():
     skipped = 0
     try:
         # Build a set of existing remote SNs + record_times for dedup
-        existing_rows = sess.execute(
-            text("SELECT sn, record_time FROM defect_reports")
-        ).fetchall()
+        existing_rows = sess.execute(text("SELECT sn, record_time FROM defect_reports")).fetchall()
         existing_keys = set()
         for row in existing_rows:
             key = (str(row[0] or "").strip(), str(row[1] or "").strip())
