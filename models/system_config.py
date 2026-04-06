@@ -5,6 +5,7 @@ from datetime import datetime
 # Mapping of config keys to environment variable names
 _ENV_FALLBACK = {
     "gemini_api_key": "GEMINI_API_KEY",
+    "glm_api_key": "GLM_API_KEY",
 }
 
 

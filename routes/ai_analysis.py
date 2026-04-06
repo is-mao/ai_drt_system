@@ -1,10 +1,16 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from routes.auth import login_required
 from services.ai_service import analyze_log_with_ai, beautify_root_cause_action, translate_root_cause_action
 from services.historical_search import search_similar_failures
 from models.defect_report import DefectReport
 
 ai_bp = Blueprint("ai", __name__)
+
+
+@ai_bp.route("/translate", methods=["GET"])
+@login_required
+def translate_page():
+    return render_template("translate.html")
 
 
 @ai_bp.route("/api/ai/analyze-log", methods=["POST"])
@@ -66,13 +72,19 @@ def translate():
     root_cause = data.get("root_cause", "").strip()
     action = data.get("action", "").strip()
     target_lang = data.get("target_lang", "").strip()
+    source_lang = data.get("source_lang", "auto").strip() or "auto"
+    provider = data.get("provider", "Gemini Flash").strip() or "Gemini Flash"
 
     if not root_cause and not action:
         return jsonify({"error": "Please provide Root Cause or Action text to translate"}), 400
-    if target_lang not in ("zh", "vi"):
-        return jsonify({"error": "Unsupported language. Use 'zh' or 'vi'."}), 400
+    if target_lang not in ("zh", "vi", "en"):
+        return jsonify({"error": "Unsupported language. Use 'zh', 'vi', or 'en'."}), 400
+    if source_lang not in ("auto", "zh", "vi", "en"):
+        return jsonify({"error": "Unsupported source language."}), 400
+    if provider not in ("Gemini Flash", "GLM-4.7-Flash", "Google Translate"):
+        return jsonify({"error": "Unsupported provider."}), 400
 
-    result = translate_root_cause_action(root_cause, action, target_lang)
+    result = translate_root_cause_action(root_cause, action, target_lang, provider=provider, source_lang=source_lang)
     return jsonify(result)
 
 

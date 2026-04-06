@@ -10,44 +10,55 @@ settings_bp = Blueprint("settings", __name__)
 # Path to .env file
 _ENV_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
 
+_ENV_KEY_MAP = {
+    "gemini_api_key": "GEMINI_API_KEY",
+    "glm_api_key": "GLM_API_KEY",
+}
 
-def _read_env_key():
-    """Read GEMINI_API_KEY from .env file."""
+
+def _read_env_var(env_name):
+    """Read a single env var from .env file."""
     if not os.path.exists(_ENV_FILE):
         return ""
     with open(_ENV_FILE, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if line.startswith("GEMINI_API_KEY="):
+            if line.startswith(env_name + "="):
                 return line.split("=", 1)[1].strip()
     return ""
 
 
-def _write_env_key(value):
-    """Write GEMINI_API_KEY to .env file."""
+def _write_env_var(env_name, value):
+    """Write a single env var to .env file and runtime env."""
     lines = []
     found = False
     if os.path.exists(_ENV_FILE):
         with open(_ENV_FILE, "r", encoding="utf-8") as f:
             for line in f:
-                if line.strip().startswith("GEMINI_API_KEY="):
+                if line.strip().startswith(env_name + "="):
                     found = True
                     if value:
-                        lines.append(f"GEMINI_API_KEY={value}\n")
+                        lines.append(f"{env_name}={value}\n")
                     # If value is empty, skip this line (remove it)
                 else:
                     lines.append(line)
     if not found and value:
-        lines.append(f"GEMINI_API_KEY={value}\n")
+        lines.append(f"{env_name}={value}\n")
 
     with open(_ENV_FILE, "w", encoding="utf-8") as f:
         f.writelines(lines)
 
     # Also update the runtime environment variable
     if value:
-        os.environ["GEMINI_API_KEY"] = value
-    elif "GEMINI_API_KEY" in os.environ:
-        del os.environ["GEMINI_API_KEY"]
+        os.environ[env_name] = value
+    elif env_name in os.environ:
+        del os.environ[env_name]
+
+
+def _mask_secret(value):
+    if not value:
+        return ""
+    return value[:4] + "*" * (len(value) - 8) + value[-4:] if len(value) > 8 else "****"
 
 
 @settings_bp.route("/settings")
@@ -59,14 +70,14 @@ def settings_page():
 @settings_bp.route("/api/settings/ai", methods=["GET"])
 @login_required
 def get_ai_settings():
-    api_key = _read_env_key()
-    masked = ""
-    if api_key:
-        masked = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "****"
+    gemini_key = _read_env_var(_ENV_KEY_MAP["gemini_api_key"]) or SystemConfig.get_value("gemini_api_key", "") or ""
+    glm_key = _read_env_var(_ENV_KEY_MAP["glm_api_key"]) or SystemConfig.get_value("glm_api_key", "") or ""
     return jsonify(
         {
-            "has_key": bool(api_key),
-            "masked_key": masked,
+            "has_gemini_key": bool(gemini_key),
+            "masked_gemini_key": _mask_secret(gemini_key),
+            "has_glm_key": bool(glm_key),
+            "masked_glm_key": _mask_secret(glm_key),
         }
     )
 
@@ -80,10 +91,18 @@ def update_ai_settings():
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    api_key = data.get("api_key", "").strip()
-    _write_env_key(api_key)
+    updates = {
+        "gemini_api_key": data.get("gemini_api_key"),
+        "glm_api_key": data.get("glm_api_key"),
+    }
+    for config_key, value in updates.items():
+        if value is None:
+            continue
+        clean_value = str(value).strip()
+        _write_env_var(_ENV_KEY_MAP[config_key], clean_value)
+        SystemConfig.set_value(config_key, clean_value)
 
-    return jsonify({"success": True, "message": "API key updated successfully"})
+    return jsonify({"success": True, "message": "AI provider settings updated successfully"})
 
 
 # ---------------------------------------------------------------------------
@@ -191,27 +210,33 @@ def test_database():
 @login_required
 def test_ai():
     data = request.get_json(silent=True) or {}
+    provider = data.get("provider", "gemini").strip().lower() or "gemini"
+    setting_key = {
+        "gemini": "gemini_api_key",
+        "glm": "glm_api_key",
+    }.get(provider, "gemini_api_key")
+    env_name = _ENV_KEY_MAP.get(setting_key, _ENV_KEY_MAP["gemini_api_key"])
+
     api_key = data.get("api_key", "").strip()
     key_source = "input"
     if not api_key:
-        api_key = _read_env_key()
+        api_key = _read_env_var(env_name)
         key_source = ".env file"
     if not api_key:
-        api_key = SystemConfig.get_value("gemini_api_key") or ""
+        api_key = SystemConfig.get_value(setting_key) or ""
         key_source = "database"
+
     if not api_key:
         return jsonify(
             {
                 "success": False,
                 "message": "No API key configured. Please enter a key first.",
-                "debug": "No key found in input, .env, or database",
+                "debug": f"provider={provider}, no key found in input, .env, or database",
             }
         )
 
     key_count = len([k for k in api_key.split(",") if k.strip()])
-    debug_info = (
-        f"source={key_source}, keys={key_count}, first_key={api_key[:8]}...{api_key.split(',')[0].strip()[-4:]}"
-    )
+    debug_info = f"provider={provider}, source={key_source}, keys={key_count}, first_key={api_key[:8]}...{api_key.split(',')[0].strip()[-4:]}"
 
-    success, message = test_ai_connection(api_key)
+    success, message = test_ai_connection(provider, api_key)
     return jsonify({"success": success, "message": message, "debug": debug_info})
