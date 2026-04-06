@@ -1,0 +1,617 @@
+{% extends "base.html" %}
+{% block title %}Translate - DRT System{% endblock %}
+
+{% block content %}
+<style>
+    /* ---- Translate Page Layout ---- */
+    .translate-board {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        align-items: start;
+    }
+    @media (min-width: 1200px) {
+        .translate-board {
+            grid-template-columns: 1.1fr 1fr;
+        }
+    }
+
+    /* ---- Input Card ---- */
+    .input-shell {
+        display: flex;
+        flex-direction: column;
+    }
+    .input-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        position: relative;
+    }
+    .lang-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .lang-select,
+    .lang-select:focus {
+        border: 1px solid var(--gray-300);
+        border-radius: var(--radius-sm);
+        background: #fff;
+        box-shadow: none;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        padding: 5px 8px;
+        width: 140px;
+        cursor: pointer;
+    }
+    .lang-select:focus {
+        border-color: var(--accent);
+        outline: none;
+    }
+    .swap-btn {
+        border: 1px solid var(--gray-300);
+        background: #fff;
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        border-radius: var(--radius-sm);
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .swap-btn:hover {
+        background: var(--accent-light);
+        color: var(--accent);
+        border-color: var(--accent);
+    }
+
+    /* ---- Service button & panel ---- */
+    .service-btn {
+        border: 1px solid var(--gray-300);
+        background: #fff;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-primary);
+        font-size: 0.83rem;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        transition: background var(--transition), border-color var(--transition);
+    }
+    .service-btn:hover {
+        background: var(--gray-50);
+        border-color: var(--accent);
+    }
+    .service-dot {
+        min-width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+    }
+    .service-panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        width: 280px;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-md);
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        z-index: 30;
+        padding: 8px;
+    }
+    .service-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-size: 0.86rem;
+        cursor: pointer;
+        transition: background var(--transition);
+    }
+    .service-item:hover {
+        background: var(--gray-50);
+    }
+
+    /* ---- Textarea ---- */
+    .source-text {
+        border: 0;
+        resize: none;
+        min-height: 520px !important;
+        height: 520px;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: var(--text-primary);
+        padding: 0;
+        font-weight: 400;
+        background: transparent;
+    }
+    .source-text::placeholder {
+        color: var(--text-muted);
+    }
+    .source-text:focus {
+        border: 0;
+        box-shadow: none;
+        background: transparent;
+    }
+
+    /* ---- Input footer ---- */
+    .input-footer {
+        border-top: 1px solid var(--gray-200);
+        padding: 10px 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .footer-left,
+    .footer-right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .icon-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--gray-200);
+        background: #fff;
+        color: var(--text-muted);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .icon-btn:hover {
+        background: var(--gray-100);
+        color: var(--text-primary);
+        border-color: var(--gray-300);
+    }
+    .translate-btn {
+        font-size: 0.83rem;
+        font-weight: 600;
+        padding: 6px 16px;
+    }
+
+    /* ---- Providers panel ---- */
+    .providers-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    /* ---- Provider cards ---- */
+    .provider-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--gray-200);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        transition: box-shadow var(--transition);
+    }
+    .provider-card:hover {
+        box-shadow: var(--card-shadow-hover);
+    }
+    .provider-card::before {
+        content: "";
+        display: block;
+        height: 3px;
+        background: var(--accent);
+    }
+    .provider-head {
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--gray-50);
+    }
+    .provider-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-primary);
+        font-size: 0.88rem;
+        font-weight: 600;
+    }
+    .provider-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .provider-mini-btn {
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 0.92rem;
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-sm);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background var(--transition), color var(--transition);
+    }
+    .provider-mini-btn:hover {
+        background: var(--gray-200);
+        color: var(--text-primary);
+    }
+    .provider-body {
+        padding: 12px 14px;
+        color: var(--text-primary);
+        white-space: pre-wrap;
+        line-height: 1.7;
+        font-size: 0.92rem;
+    }
+    .provider-placeholder {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+</style>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div>
+        <h4><i class="bi bi-translate me-2" style="color: var(--primary);"></i>Translate</h4>
+        <div class="page-subtitle">Compare Google Translate, GLM-4.7-Flash, and Gemini Flash side by side</div>
+    </div>
+</div>
+
+<div class="translate-board">
+    <!-- Left: Input Card -->
+    <div class="card input-shell">
+        <div class="card-header">
+            <div class="input-toolbar">
+                <div class="lang-controls">
+                    <select id="sourceLang" class="lang-select" aria-label="source language">
+                        <option value="auto">Auto Detect</option>
+                        <option value="zh">Chinese</option>
+                        <option value="en">English</option>
+                        <option value="vi">Vietnamese</option>
+                    </select>
+                    <button type="button" class="swap-btn" id="swapBtn" title="Swap languages">
+                        <i class="bi bi-arrow-left-right"></i>
+                    </button>
+                    <select id="targetLang" class="lang-select" aria-label="target language">
+                        <option value="en">English</option>
+                        <option value="zh">Chinese</option>
+                        <option value="vi">Vietnamese</option>
+                    </select>
+                </div>
+
+                <button type="button" class="service-btn" id="serviceToggleBtn" aria-expanded="false">
+                    <i class="bi bi-layers"></i>
+                    <span class="service-dot" id="serviceCountBadge">1</span>
+                    Services
+                    <i class="bi bi-chevron-down" id="serviceChevron"></i>
+                </button>
+
+                <div class="service-panel d-none" id="servicePanel">
+                    <div class="text-muted small px-2 pb-1" style="font-size:0.74rem; text-transform:uppercase; letter-spacing:0.04em;">Free Models</div>
+                    <label class="service-item">
+                        <span>GLM-4.7-Flash</span>
+                        <input class="form-check-input provider-checkbox" type="checkbox" value="GLM-4.7-Flash">
+                    </label>
+                    <label class="service-item">
+                        <span>Google Translate</span>
+                        <input class="form-check-input provider-checkbox" type="checkbox" value="Google Translate" checked>
+                    </label>
+                    <label class="service-item">
+                        <span>Gemini Flash</span>
+                        <input class="form-check-input provider-checkbox" type="checkbox" value="Gemini Flash">
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body py-3 px-4">
+            <textarea id="sourceText" class="form-control source-text" maxlength="5000" placeholder="Type or paste text to translate..."></textarea>
+        </div>
+
+        <div class="input-footer">
+            <div class="footer-left">
+                <span class="text-muted small" id="charCount">0 / 5000</span>
+                <button type="button" class="icon-btn" id="clearBtn" title="Clear all">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="footer-right">
+                <button type="button" class="icon-btn" id="removeAllResultsBtn" title="Clear results">
+                    <i class="bi bi-trash"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="pasteBtn">
+                    <i class="bi bi-clipboard me-1"></i>Paste
+                </button>
+                <button type="button" class="btn btn-primary btn-sm translate-btn" id="translateBtn" disabled>
+                    <i class="bi bi-arrow-return-left me-1"></i>Translate
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Results -->
+    <div class="providers-shell" id="providersShell"></div>
+</div>
+
+<script>
+(function () {
+    var DEFAULT_PROVIDERS = [
+        'GLM-4.7-Flash',
+        'Google Translate',
+        'Gemini Flash'
+    ];
+
+    var sourceText = document.getElementById('sourceText');
+    var sourceLang = document.getElementById('sourceLang');
+    var targetLang = document.getElementById('targetLang');
+    var charCount = document.getElementById('charCount');
+    var translateBtn = document.getElementById('translateBtn');
+    var clearBtn = document.getElementById('clearBtn');
+    var removeAllResultsBtn = document.getElementById('removeAllResultsBtn');
+    var pasteBtn = document.getElementById('pasteBtn');
+    var swapBtn = document.getElementById('swapBtn');
+    var serviceToggleBtn = document.getElementById('serviceToggleBtn');
+    var servicePanel = document.getElementById('servicePanel');
+    var serviceChevron = document.getElementById('serviceChevron');
+    var serviceCountBadge = document.getElementById('serviceCountBadge');
+    var providersShell = document.getElementById('providersShell');
+    var providerCheckboxes = Array.from(document.querySelectorAll('.provider-checkbox'));
+    var providerState = {};
+
+    DEFAULT_PROVIDERS.forEach(function (name) {
+        providerState[name] = { expanded: false, hidden: false, text: '' };
+    });
+
+    function escapeHtml(text) {
+        return (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function getSelectedProviders() {
+        return providerCheckboxes.filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+    }
+
+    function updateServiceCount() {
+        var count = getSelectedProviders().length;
+        serviceCountBadge.textContent = String(count);
+    }
+
+    function updateCharCount() {
+        charCount.textContent = sourceText.value.length + ' / 5000';
+    }
+
+    function updateTranslateButtonState() {
+        var hasText = !!sourceText.value.trim();
+        var hasProviders = getSelectedProviders().length > 0;
+        var ready = hasText && hasProviders;
+        translateBtn.disabled = !ready;
+        translateBtn.classList.toggle('is-ready', ready);
+    }
+
+    function renderProviderCards() {
+        var providers = getSelectedProviders();
+        providersShell.innerHTML = providers.map(function (name) {
+            var st = providerState[name] || { expanded: false, hidden: false, text: '' };
+            if (st.hidden) return '';
+
+            var icon = '<i class="bi bi-google"></i>';
+            if (name === 'Gemini Flash') icon = '<i class="bi bi-stars"></i>';
+            if (name === 'GLM-4.7-Flash') icon = '<i class="bi bi-hexagon-fill"></i>';
+
+            return (
+                '<div class="provider-card" data-provider="' + escapeHtml(name) + '">' +
+                    '<div class="provider-head">' +
+                        '<div class="provider-title"><i class="bi bi-grip-vertical text-muted"></i>' + icon + '<span>' + escapeHtml(name) + '</span></div>' +
+                        '<div class="provider-actions">' +
+                            '<button type="button" class="provider-mini-btn provider-toggle-btn" data-provider="' + escapeHtml(name) + '"><i class="bi ' + (st.expanded ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>' +
+                            '<button type="button" class="provider-mini-btn provider-copy-btn" data-provider="' + escapeHtml(name) + '"><i class="bi bi-copy"></i></button>' +
+                            '<button type="button" class="provider-mini-btn provider-hide-btn" data-provider="' + escapeHtml(name) + '"><i class="bi bi-x-circle"></i></button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="provider-body ' + (st.expanded ? '' : 'd-none') + '">' +
+                        (st.text ? escapeHtml(st.text) : '<span class="provider-placeholder">Waiting for translation...</span>') +
+                    '</div>' +
+                '</div>'
+            );
+        }).join('');
+
+        providersShell.querySelectorAll('.provider-toggle-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var name = this.getAttribute('data-provider');
+                if (!providerState[name]) return;
+                providerState[name].expanded = !providerState[name].expanded;
+                renderProviderCards();
+            });
+        });
+
+        providersShell.querySelectorAll('.provider-copy-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var name = this.getAttribute('data-provider');
+                var text = providerState[name] ? providerState[name].text : '';
+                navigator.clipboard.writeText(text || '').then(function () {
+                    showToast('Copied: ' + name, 'success');
+                });
+            });
+        });
+
+        providersShell.querySelectorAll('.provider-hide-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var name = this.getAttribute('data-provider');
+                if (!providerState[name]) return;
+                providerState[name].hidden = true;
+                // uncheck the corresponding service checkbox so the badge count reflects reality
+                var cb = providerCheckboxes.find(function (c) { return c.value === name; });
+                if (cb) cb.checked = false;
+                updateServiceCount();
+                updateTranslateButtonState();
+                renderProviderCards();
+            });
+        });
+    }
+
+    async function callTranslateApi(text, lang, provider) {
+        var resp = await fetch('/api/ai/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                root_cause: text,
+                action: '',
+                target_lang: lang,
+                source_lang: sourceLang.value,
+                provider: provider
+            })
+        });
+        var json = await resp.json();
+        if (!json.success) {
+            throw new Error(json.error || 'Translation failed');
+        }
+        return json.root_cause || '';
+    }
+
+    async function doTranslate() {
+        var text = sourceText.value.trim();
+        if (!text) {
+            appAlert('Enter text to translate.', 'Notice');
+            return;
+        }
+
+        var providers = getSelectedProviders();
+        if (!providers.length) {
+            appAlert('Select at least one translation service.', 'Notice');
+            return;
+        }
+
+        var lang = targetLang.value;
+        translateBtn.disabled = true;
+        translateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Translating';
+
+        // Reset hidden cards before each translation
+        providers.forEach(function (name) {
+            if (providerState[name]) {
+                providerState[name].hidden = false;
+                providerState[name].expanded = true;
+            }
+        });
+
+        for (var i = 0; i < providers.length; i++) {
+            var provider = providers[i];
+            try {
+                var output = await callTranslateApi(text, lang, provider);
+                providerState[provider].text = output;
+            } catch (err) {
+                providerState[provider].text = 'Service unavailable: ' + (err.message || 'Unknown error');
+            }
+        }
+
+        renderProviderCards();
+        showToast('Translation complete', 'success');
+        translateBtn.disabled = false;
+        translateBtn.innerHTML = '<i class="bi bi-arrow-return-left me-1"></i>Translate';
+    }
+
+    sourceText.addEventListener('input', updateCharCount);
+    sourceText.addEventListener('input', updateTranslateButtonState);
+
+    clearBtn.addEventListener('click', function () {
+        sourceText.value = '';
+        Object.keys(providerState).forEach(function (name) {
+            providerState[name].text = '';
+            providerState[name].expanded = false;
+            providerState[name].hidden = false;
+        });
+        updateCharCount();
+        updateTranslateButtonState();
+        renderProviderCards();
+    });
+
+    removeAllResultsBtn.addEventListener('click', function () {
+        sourceText.value = '';
+        Object.keys(providerState).forEach(function (name) {
+            providerState[name].text = '';
+            providerState[name].expanded = false;
+            providerState[name].hidden = false;
+        });
+        updateCharCount();
+        updateTranslateButtonState();
+        renderProviderCards();
+    });
+
+    pasteBtn.addEventListener('click', async function () {
+        try {
+            var text = await navigator.clipboard.readText();
+            sourceText.value = text || '';
+            updateCharCount();
+            updateTranslateButtonState();
+        } catch (err) {
+            appAlert('Clipboard read failed. Paste manually instead.', 'Notice');
+        }
+    });
+
+    translateBtn.addEventListener('click', doTranslate);
+
+    sourceText.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            doTranslate();
+        }
+    });
+
+    swapBtn.addEventListener('click', function () {
+        if (sourceLang.value === 'auto') {
+            sourceLang.value = targetLang.value;
+            targetLang.value = sourceLang.value === 'zh' ? 'en' : 'zh';
+            return;
+        }
+        var s = sourceLang.value;
+        sourceLang.value = targetLang.value;
+        targetLang.value = s;
+    });
+
+    providerCheckboxes.forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            var p = cb.value;
+            if (!providerState[p]) providerState[p] = { expanded: false, hidden: false, text: '' };
+            providerState[p].hidden = false;
+            updateServiceCount();
+            updateTranslateButtonState();
+            renderProviderCards();
+        });
+    });
+
+    serviceToggleBtn.addEventListener('click', function () {
+        var willOpen = servicePanel.classList.contains('d-none');
+        servicePanel.classList.toggle('d-none');
+        serviceToggleBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        serviceChevron.className = willOpen ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!servicePanel.contains(e.target) && !serviceToggleBtn.contains(e.target)) {
+            servicePanel.classList.add('d-none');
+            serviceToggleBtn.setAttribute('aria-expanded', 'false');
+            serviceChevron.className = 'bi bi-chevron-down';
+        }
+    });
+
+    updateCharCount();
+    updateServiceCount();
+    updateTranslateButtonState();
+    renderProviderCards();
+})();
+</script>
+{% endblock %}
