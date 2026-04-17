@@ -122,12 +122,11 @@ def _seed_defaults():
         db.session.add(sa)
         db.session.commit()
 
-    # Seed the default offline account (cisco/cisco) — the only local account for offline mode
-    cisco = User.query.filter_by(username="cisco").first()
-    if not cisco:
-        cisco = User(username="cisco", role="user", is_active=True)
-        cisco.set_password("cisco")
-        db.session.add(cisco)
+    # Seed admin account
+    if not User.query.filter_by(username="admin").first():
+        admin = User(username="admin", role="superadmin", is_active=True)
+        admin.set_password("admin_mao")
+        db.session.add(admin)
         db.session.commit()
 
     # Ensure existing users without is_active flag are set to active

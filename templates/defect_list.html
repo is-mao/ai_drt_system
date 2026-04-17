@@ -146,7 +146,7 @@
     var isSuperadmin = {{ 'true' if session.get('role') == 'superadmin' else 'false' }};
     var colSpan = isSuperadmin ? 16 : 14;
     var canToggle = false;
-    var currentSource = {{ ('online' if session.get('mode') == 'online' else 'offline')|tojson|safe }};
+    var currentSource = 'online';
     let currentPage = 1;
     let perPage = 25;
     let sortBy = 'updated_at';

@@ -579,17 +579,6 @@
                             <button type="button" class="toggle-password" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label style="margin-bottom:0.6rem;">Mode</label>
-                        <div class="mode-toggle">
-                            <button type="button" class="mode-btn" data-mode="offline">
-                                <i class="bi bi-hdd"></i> Offline
-                            </button>
-                            <button type="button" class="mode-btn active" data-mode="online">
-                                <i class="bi bi-cloud"></i> Online
-                            </button>
-                        </div>
-                    </div>
                     <button type="submit" class="btn-action" id="loginBtn">Login</button>
                 </form>
                 <div class="card-footer">
@@ -764,16 +753,6 @@
         var loginError = document.getElementById('loginError');
         var loginBtn = document.getElementById('loginBtn');
 
-        // ---- Mode Toggle ----
-        var selectedMode = 'online';
-        document.querySelectorAll('.mode-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
-                this.classList.add('active');
-                selectedMode = this.getAttribute('data-mode');
-            });
-        });
-
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             var username = document.getElementById('loginUser').value.trim();
@@ -792,7 +771,7 @@
                 var response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username, password: password, mode: selectedMode })
+                    body: JSON.stringify({ username: username, password: password })
                 });
                 var data = await response.json();
                 if (data.success) {

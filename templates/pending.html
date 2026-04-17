@@ -130,7 +130,7 @@
     var isSuperadmin = {{ 'true' if session.get('role') == 'superadmin' else 'false' }};
     var colSpan = isSuperadmin ? 16 : 15;
     var canToggle = false;
-    var currentSource = {{ ('online' if session.get('mode') == 'online' else 'offline')|tojson|safe }};
+    var currentSource = 'online';
     function showToast(message, type) {
         const toastEl = document.getElementById('appToast');
         const toastMsg = document.getElementById('toastMessage');
