@@ -5,7 +5,7 @@ services:
       - "5001:5001"
     volumes:
       - app_data:/app/data
-      - ./drt_system.db:/app/drt_system.db
+      - .:/app
     env_file:
       - .env
     environment:
