@@ -26,13 +26,40 @@ _GOOGLE_LANGS = {"auto": "auto", "zh": "zh-CN", "vi": "vi", "en": "en"}
 _GOOGLE_CHUNK_SIZE = 1800
 
 
+def _get_current_user_key(field):
+    """Get the current user's personal API key from the users table."""
+    try:
+        from flask import session as flask_session
+        from models.user import User
+        from models import db
+
+        user_id = flask_session.get("user_id")
+        if not user_id:
+            return ""
+        user = db.session.get(User, user_id)
+        if user:
+            return (getattr(user, field, "") or "").strip()
+    except Exception:
+        pass
+    return ""
+
+
 def _get_api_keys():
-    """Get all Gemini API keys: database config first, then env var fallback.
+    """Get all Gemini API keys: user personal key first, then database config, then env var fallback.
     Supports comma-separated keys for quota rotation."""
     keys = []
+    # Priority 1: current user's personal key
+    user_key = _get_current_user_key("gemini_api_key")
+    if user_key:
+        keys.extend([k.strip() for k in user_key.split(",") if k.strip()])
+    # Priority 2: global config from database
     db_key = SystemConfig.get_value("gemini_api_key")
     if db_key:
-        keys.extend([k.strip() for k in db_key.split(",") if k.strip()])
+        for k in db_key.split(","):
+            k = k.strip()
+            if k and k not in keys:
+                keys.append(k)
+    # Priority 3: env var fallback
     env_key = os.environ.get("GEMINI_API_KEY", "")
     if env_key:
         for k in env_key.split(","):
@@ -43,6 +70,9 @@ def _get_api_keys():
 
 
 def _get_glm_api_key():
+    user_key = _get_current_user_key("glm_api_key")
+    if user_key:
+        return user_key
     return SystemConfig.get_value("glm_api_key") or os.environ.get("GLM_API_KEY", "")
 
 

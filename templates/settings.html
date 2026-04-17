@@ -10,6 +10,60 @@
         </div>
     </div>
 
+    <!-- My API Keys (per-user) -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3.5 11.5a3.5 3.5 0 1 1 3.163-5H14L15.5 8 14 9.5l-1-1-1 1-1-1-1 1-1-1H6.663a3.5 3.5 0 0 1-3.163 2M2.5 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/>
+                </svg>
+                My API Keys
+            </h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">Set your personal API keys. These will be used instead of the global keys when you use AI features.</p>
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label class="form-label">My Gemini API Key</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="userGeminiKey" placeholder="Enter your personal Gemini API key">
+                            <button class="btn btn-outline-secondary toggle-secret" type="button" data-target="userGeminiKey">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">My GLM API Key</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="userGlmKey" placeholder="Enter your personal GLM API key">
+                            <button class="btn btn-outline-secondary toggle-secret" type="button" data-target="userGlmKey">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="userKeyInfo" class="mb-3" style="display:none;"></div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm" id="saveUserKey"><i class="bi bi-save me-1"></i>Save My Keys</button>
+                        <button class="btn btn-outline-danger btn-sm" id="clearUserKey"><i class="bi bi-x-lg me-1"></i>Clear My Keys</button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card" style="background: var(--gray-50); border: 1px solid var(--gray-200);">
+                        <div class="card-body">
+                            <h6 class="fw-bold mb-2"><i class="bi bi-info-circle me-1"></i>Key Priority</h6>
+                            <ol class="small mb-0 ps-3">
+                                <li class="mb-1"><strong>Your personal key</strong> (highest priority)</li>
+                                <li class="mb-1">Global key (set by admin)</li>
+                                <li>Environment variable fallback</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- AI Configuration -->
     <div class="card mb-4">
         <div class="card-header">
@@ -107,6 +161,7 @@ function escapeHtml(text) {
 
 document.addEventListener('DOMContentLoaded', function() {
     loadAISettings();
+    loadUserAISettings();
 
     document.querySelectorAll('.toggle-secret').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -214,7 +269,49 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Clear key failed:', err);
         }
     });
+    document.getElementById('saveUserKey').addEventListener('click', function() {
+        var gemini = document.getElementById('userGeminiKey').value.trim();
+        var glm = document.getElementById('userGlmKey').value.trim();
+        var payload = {};
+        if (gemini) payload.gemini_api_key = gemini;
+        if (glm) payload.glm_api_key = glm;
+        if (!Object.keys(payload).length) { showToast('No keys to save', 'warning'); return; }
+        fetch('/api/settings/user-ai', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                showToast('Your API keys saved', 'success');
+                document.getElementById('userGeminiKey').value = '';
+                document.getElementById('userGlmKey').value = '';
+                loadUserAISettings();
+            } else { showToast(data.error || 'Failed', 'danger'); }
+        });
+    });
+
+    document.getElementById('clearUserKey').addEventListener('click', async function() {
+        if (!await appConfirm('Clear your personal API keys?', 'Clear')) return;
+        fetch('/api/settings/user-ai', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({gemini_api_key: '', glm_api_key: ''})
+        }).then(r => r.json()).then(data => {
+            if (data.success) { showToast('Your keys cleared', 'success'); loadUserAISettings(); }
+        });
+    });
 });
+
+function loadUserAISettings() {
+    fetch('/api/settings/user-ai').then(r => r.json()).then(data => {
+        var info = document.getElementById('userKeyInfo');
+        var tags = [];
+        if (data.has_gemini_key) tags.push('<span class="badge bg-success me-2"><i class="bi bi-check-circle me-1"></i>Gemini</span><span class="text-muted small me-3">' + escapeHtml(data.masked_gemini_key) + '</span>');
+        if (data.has_glm_key) tags.push('<span class="badge bg-success me-2"><i class="bi bi-check-circle me-1"></i>GLM</span><span class="text-muted small me-3">' + escapeHtml(data.masked_glm_key) + '</span>');
+        if (tags.length) { info.style.display = 'block'; info.innerHTML = tags.join('<br>'); }
+        else { info.style.display = 'none'; info.innerHTML = ''; }
+    });
+}
 
 function loadAISettings() {
     fetch('/api/settings/ai')

@@ -524,7 +524,11 @@ def init_all_tables():
 def _migrate_remote_columns(engine):
     """Add missing columns to remote database tables. Never raises."""
     REMOTE_MIGRATIONS = {
-        "users": {"bu": "VARCHAR(20) DEFAULT ''"},
+        "users": {
+            "bu": "VARCHAR(20) DEFAULT ''",
+            "gemini_api_key": "VARCHAR(512) DEFAULT ''",
+            "glm_api_key": "VARCHAR(512) DEFAULT ''",
+        },
     }
     try:
         from sqlalchemy import inspect as sa_inspect

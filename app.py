@@ -86,7 +86,12 @@ def _migrate_columns(app):
 
     MIGRATIONS = {
         "defect_reports": {"sequence_log": "TEXT", "buffer_log": "TEXT"},
-        "users": {"is_active": "BOOLEAN DEFAULT 1", "bu": "VARCHAR(20) DEFAULT ''"},
+        "users": {
+            "is_active": "BOOLEAN DEFAULT 1",
+            "bu": "VARCHAR(20) DEFAULT ''",
+            "gemini_api_key": "VARCHAR(512) DEFAULT ''",
+            "glm_api_key": "VARCHAR(512) DEFAULT ''",
+        },
     }
 
     try:

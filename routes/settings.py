@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, render_template, session
 from routes.auth import login_required
 from models import db
 from models.system_config import SystemConfig
+from models.user import User
 from services.ai_service import test_ai_connection
 import os
 
@@ -240,3 +241,41 @@ def test_ai():
 
     success, message = test_ai_connection(provider, api_key)
     return jsonify({"success": success, "message": message, "debug": debug_info})
+
+
+# ---------------------------------------------------------------------------
+# Per-User API Key Management
+# ---------------------------------------------------------------------------
+
+
+@settings_bp.route("/api/settings/user-ai", methods=["GET"])
+@login_required
+def get_user_ai_settings():
+    user = db.session.get(User, session["user_id"])
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify(
+        {
+            "has_gemini_key": bool(user.gemini_api_key),
+            "masked_gemini_key": _mask_secret(user.gemini_api_key or ""),
+            "has_glm_key": bool(user.glm_api_key),
+            "masked_glm_key": _mask_secret(user.glm_api_key or ""),
+        }
+    )
+
+
+@settings_bp.route("/api/settings/user-ai", methods=["PUT"])
+@login_required
+def update_user_ai_settings():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    user = db.session.get(User, session["user_id"])
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    if "gemini_api_key" in data:
+        user.gemini_api_key = str(data["gemini_api_key"]).strip()
+    if "glm_api_key" in data:
+        user.glm_api_key = str(data["glm_api_key"]).strip()
+    db.session.commit()
+    return jsonify({"success": True, "message": "Your API keys updated successfully"})

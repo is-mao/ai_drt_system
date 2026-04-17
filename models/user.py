@@ -11,6 +11,8 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="user")  # superadmin, user
     bu = db.Column(db.String(20), default="")  # Business Unit (e.g. CRBU, WNBU)
+    gemini_api_key = db.Column(db.String(512), default="")
+    glm_api_key = db.Column(db.String(512), default="")
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
     last_login = db.Column(db.DateTime)
