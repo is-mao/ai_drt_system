@@ -474,10 +474,25 @@
                         x: {
                             beginAtZero: true,
                             ticks: { precision: 0 }
+                        },
+                        y: {
+                            ticks: {
+                                callback: function (value) {
+                                    var label = this.getLabelForValue(value);
+                                    return label && label.length > 25 ? label.substring(0, 25) + '...' : label;
+                                }
+                            }
                         }
                     },
                     plugins: {
-                        legend: { display: false }
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: function (items) {
+                                    return items[0].label;
+                                }
+                            }
+                        }
                     }
                 }
             });

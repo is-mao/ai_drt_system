@@ -315,7 +315,8 @@ def top_failures():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
-    query = db.session.query(DefectReport.failure, func.count(DefectReport.id).label("count"))
+    udb = get_user_db()
+    query = udb.session.query(DefectReport.failure, func.count(DefectReport.id).label("count"))
 
     if bu and bu.upper() in Config.BU_OPTIONS:
         query = query.filter(DefectReport.bu == bu.upper())
