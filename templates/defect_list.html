@@ -531,7 +531,7 @@
     });
 
     // ---- Export ----
-    document.getElementById('exportBtn').addEventListener('click', function () {
+    document.getElementById('exportBtn').addEventListener('click', async function () {
         const params = new URLSearchParams();
         const bu = document.getElementById('filterBu').value;
         const dc = document.getElementById('filterDefectClass').value;
