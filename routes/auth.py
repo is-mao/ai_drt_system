@@ -76,6 +76,7 @@ def api_register():
         return jsonify({"success": False, "error": "Username already exists"}), 409
 
     from werkzeug.security import generate_password_hash
+
     password_hash = generate_password_hash(password, method="pbkdf2:sha256")
     user = User(username=username, password_hash=password_hash, role="user", bu=bu, is_active=True)
     db.session.add(user)
