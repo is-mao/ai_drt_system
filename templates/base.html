@@ -113,6 +113,31 @@
     </div>
 
     <!-- Global Confirm Modal -->
+
+    <!-- TOTP Verification Modal -->
+    <div class="modal fade" id="totpModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-body text-center px-4 pt-4 pb-2">
+                    <div class="mb-3">
+                        <i class="bi bi-shield-lock" style="font-size:2.5rem; color:var(--primary);"></i>
+                    </div>
+                    <h6 class="mb-2">Two-Factor Authentication</h6>
+                    <p class="text-muted small mb-3">Enter the 6-digit code from your authenticator app</p>
+                    <input type="text" class="form-control text-center mb-2" id="totpCodeInput"
+                           maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="000000"
+                           style="font-size:1.5rem; letter-spacing:0.5rem; font-weight:bold;">
+                    <div class="text-danger small d-none mb-2" id="totpError"></div>
+                </div>
+                <div class="modal-footer border-0 justify-content-center pb-3">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="totpVerifyBtn">Verify</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Confirm Modal -->
     <div class="modal fade" id="appConfirmModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content border-0 shadow">
@@ -191,6 +216,14 @@
                 window.location.href = '/login';
             }
         });
+
+        // Global escapeHtml utility
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
 
         // Highlight active nav link
         (function () {
@@ -272,6 +305,76 @@
                 });
             });
         })();
+
+        // ---- TOTP Verification ----
+        var _totpResolve = null;
+        var totpModal = null;
+
+        function requireTotp() {
+            return new Promise(function(resolve) {
+                if (!document.getElementById('totpModal')) { resolve(true); return; }
+                if (!totpModal) totpModal = new bootstrap.Modal(document.getElementById('totpModal'));
+                _totpResolve = resolve;
+                document.getElementById('totpCodeInput').value = '';
+                document.getElementById('totpError').classList.add('d-none');
+                totpModal.show();
+                setTimeout(function() { document.getElementById('totpCodeInput').focus(); }, 300);
+            });
+        }
+
+        document.getElementById('totpVerifyBtn').addEventListener('click', async function() {
+            var code = document.getElementById('totpCodeInput').value.trim();
+            var errEl = document.getElementById('totpError');
+            if (code.length !== 6) {
+                errEl.textContent = 'Please enter a 6-digit code.';
+                errEl.classList.remove('d-none');
+                return;
+            }
+            this.disabled = true;
+            try {
+                var resp = await fetch('/api/auth/verify-totp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({code: code})
+                });
+                var data = await resp.json();
+                if (data.success) {
+                    totpModal.hide();
+                    if (_totpResolve) _totpResolve(true);
+                } else {
+                    errEl.textContent = data.error || 'Verification failed.';
+                    errEl.classList.remove('d-none');
+                }
+            } catch (e) {
+                errEl.textContent = 'Network error.';
+                errEl.classList.remove('d-none');
+            } finally {
+                this.disabled = false;
+            }
+        });
+
+        document.getElementById('totpCodeInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') document.getElementById('totpVerifyBtn').click();
+        });
+
+        document.getElementById('totpModal').addEventListener('hidden.bs.modal', function() {
+            if (_totpResolve) { _totpResolve(false); _totpResolve = null; }
+        });
+
+        // Wrapper: fetch with TOTP retry
+        async function fetchWithTotp(url, options) {
+            var resp = await fetch(url, options);
+            if (resp.status === 403) {
+                var json = await resp.clone().json().catch(function() { return {}; });
+                if (json.totp_required) {
+                    var ok = await requireTotp();
+                    if (ok) return fetch(url, options);
+                    return resp;
+                }
+            }
+            return resp;
+        }
+
     </script>
     {% block scripts %}{% endblock %}
 </body>

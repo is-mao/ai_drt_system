@@ -286,7 +286,7 @@
                 var id = parseInt(this.getAttribute('data-id'));
                 if (!await appConfirm('Delete record #' + id + '? This action cannot be undone.', 'Delete')) return;
                 try {
-                    var resp = await fetch('/api/defects/' + id, { method: 'DELETE' });
+                    var resp = await fetchWithTotp('/api/defects/' + id, { method: 'DELETE' });
                     var json = await resp.json();
                     if (json.success) {
                         loadData();
@@ -346,7 +346,7 @@
             if (!ids.length) return;
             if (!await appConfirm('Delete ' + ids.length + ' selected record(s)? This cannot be undone.', 'Batch Delete')) return;
             try {
-                var resp = await fetch('/api/defects/batch-delete', {
+                var resp = await fetchWithTotp('/api/defects/batch-delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ids: ids })
@@ -549,7 +549,15 @@
         if (se) params.set('search', se);
         if (!document.getElementById('exportIncludeLog').checked) params.set('exclude_log', '1');
         if (canToggle) params.set('source', currentSource);
-        window.location.href = '/api/export/excel?' + params.toString();
+        var exportUrl = '/api/export/excel?' + params.toString();
+        // Pre-check TOTP before downloading
+        var resp = await fetchWithTotp(exportUrl, {method: 'GET'});
+        if (resp.ok) {
+            window.location.href = exportUrl;
+        } else if (resp.status !== 403) {
+            var err = await resp.json().catch(function() { return {}; });
+            showToast(err.error || 'Export failed', 'danger');
+        }
     });
 
     // ---- Data Source Toggle ----

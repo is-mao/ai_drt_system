@@ -581,58 +581,6 @@
                     </div>
                     <button type="submit" class="btn-action" id="loginBtn">Login</button>
                 </form>
-                <div class="card-footer">
-                    <a id="showRegister"><i class="bi bi-person-plus me-1"></i>Create an Account</a>
-                </div>
-            </div>
-
-            <!-- Register Panel -->
-            <div class="form-panel hidden" id="registerPanel">
-                <div class="card-title">Create Account</div>
-                <div class="card-subtitle">Register for AI DRT System</div>
-                <div class="alert-msg alert-error" id="regError"></div>
-                <div class="alert-msg alert-success" id="regSuccess"></div>
-                <form id="registerForm" novalidate>
-                    <div class="form-group">
-                        <label for="regUser">Username</label>
-                        <input type="text" id="regUser" placeholder="Choose a username (3-64 chars)" required autocomplete="username">
-                    </div>
-                    <div class="form-group">
-                        <label for="regPass">Password</label>
-                        <div class="input-wrapper">
-                            <input type="password" id="regPass" placeholder="At least 8 characters" required autocomplete="new-password">
-                            <button type="button" class="toggle-password" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="regConfirm">Confirm Password</label>
-                        <div class="input-wrapper">
-                            <input type="password" id="regConfirm" placeholder="Confirm your password" required autocomplete="new-password">
-                            <button type="button" class="toggle-password" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="regBU">Business Unit</label>
-                        <div class="custom-select-wrapper" id="buSelectWrapper">
-                            <div class="custom-select-trigger" id="buSelectTrigger" tabindex="0">
-                                <span id="buSelectLabel">Select your BU</span>
-                                <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4.5L6 8.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            </div>
-                            <div class="custom-select-options" id="buSelectOptions">
-                                {% for bu in bu_options %}
-                                <div class="custom-select-option" data-value="{{ bu }}">
-                                    <i class="bi bi-building me-2" style="opacity:0.5;"></i>{{ bu }}
-                                </div>
-                                {% endfor %}
-                            </div>
-                            <input type="hidden" id="regBU" name="bu" value="">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn-action" id="regBtn">Register</button>
-                </form>
-                <div class="card-footer">
-                    <a id="showLogin"><i class="bi bi-arrow-left me-1"></i>Back to Login</a>
-                </div>
             </div>
 
         </div>
@@ -721,33 +669,6 @@
             }
         });
 
-        // ---- Panel Switching (smooth, no page reload) ----
-        var loginPanel = document.getElementById('loginPanel');
-        var registerPanel = document.getElementById('registerPanel');
-
-        function switchPanel(fromPanel, toPanel) {
-            fromPanel.classList.add('fade-out');
-            setTimeout(function() {
-                fromPanel.classList.add('hidden');
-                fromPanel.classList.remove('fade-out');
-                toPanel.classList.remove('hidden');
-                // Clear alerts
-                toPanel.querySelectorAll('.alert-msg').forEach(function(a) { a.style.display = 'none'; });
-                var first = toPanel.querySelector('input');
-                if (first) first.focus();
-            }, 350);
-        }
-
-        document.getElementById('showRegister').addEventListener('click', function(e) {
-            e.preventDefault();
-            switchPanel(loginPanel, registerPanel);
-        });
-
-        document.getElementById('showLogin').addEventListener('click', function(e) {
-            e.preventDefault();
-            switchPanel(registerPanel, loginPanel);
-        });
-
         // ---- Login Logic ----
         var loginForm = document.getElementById('loginForm');
         var loginError = document.getElementById('loginError');
@@ -784,101 +705,6 @@
             } finally {
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'Login';
-            }
-        });
-
-        // ---- Custom BU Dropdown ----
-        (function() {
-            var wrapper = document.getElementById('buSelectWrapper');
-            var trigger = document.getElementById('buSelectTrigger');
-            var label = document.getElementById('buSelectLabel');
-            var options = document.getElementById('buSelectOptions');
-            var hidden = document.getElementById('regBU');
-            var items = options.querySelectorAll('.custom-select-option');
-
-            trigger.addEventListener('click', function(e) {
-                e.stopPropagation();
-                wrapper.classList.toggle('open');
-            });
-
-            trigger.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    wrapper.classList.toggle('open');
-                } else if (e.key === 'Escape') {
-                    wrapper.classList.remove('open');
-                }
-            });
-
-            items.forEach(function(item) {
-                item.addEventListener('click', function() {
-                    var val = this.getAttribute('data-value');
-                    hidden.value = val;
-                    label.textContent = val;
-                    trigger.classList.add('has-value');
-                    items.forEach(function(i) { i.classList.remove('selected'); });
-                    this.classList.add('selected');
-                    wrapper.classList.remove('open');
-                });
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!wrapper.contains(e.target)) {
-                    wrapper.classList.remove('open');
-                }
-            });
-        })();
-
-        // ---- Register Logic ----
-        var registerForm = document.getElementById('registerForm');
-        var regError = document.getElementById('regError');
-        var regSuccess = document.getElementById('regSuccess');
-        var regBtn = document.getElementById('regBtn');
-
-        registerForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            var username = document.getElementById('regUser').value.trim();
-            var password = document.getElementById('regPass').value;
-            var confirm = document.getElementById('regConfirm').value;
-            var bu = document.getElementById('regBU').value;
-
-            regError.style.display = 'none';
-            regSuccess.style.display = 'none';
-
-            if (!username || !password) {
-                showAlert(regError, 'Please fill in all fields.');
-                return;
-            }
-            if (password !== confirm) {
-                showAlert(regError, 'Passwords do not match.');
-                return;
-            }
-            if (!bu) {
-                showAlert(regError, 'Please select a Business Unit.');
-                return;
-            }
-
-            regBtn.disabled = true;
-            regBtn.textContent = 'Registering...';
-
-            try {
-                var resp = await fetch('/api/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username, password: password, bu: bu })
-                });
-                var data = await resp.json();
-                if (data.success) {
-                    showAlert(regSuccess, data.message || 'Registration successful! Waiting for admin approval.');
-                    registerForm.reset();
-                } else {
-                    showAlert(regError, data.error || 'Registration failed.');
-                }
-            } catch (err) {
-                showAlert(regError, 'Unable to connect to server.');
-            } finally {
-                regBtn.disabled = false;
-                regBtn.textContent = 'Register';
             }
         });
 

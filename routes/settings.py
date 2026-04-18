@@ -279,3 +279,87 @@ def update_user_ai_settings():
         user.glm_api_key = str(data["glm_api_key"]).strip()
     db.session.commit()
     return jsonify({"success": True, "message": "Your API keys updated successfully"})
+
+
+# ---------------------------------------------------------------------------
+# 2FA / TOTP Settings
+# ---------------------------------------------------------------------------
+
+
+@settings_bp.route("/api/settings/2fa/status", methods=["GET"])
+@login_required
+def totp_status():
+    user = User.query.get(session["user_id"])
+    return jsonify({"enabled": bool(user.totp_enabled)})
+
+
+@settings_bp.route("/api/settings/2fa/setup", methods=["GET"])
+@login_required
+def totp_setup():
+    """Generate a new TOTP secret and QR code for the user to scan."""
+    import pyotp
+    import qrcode
+    import io
+    import base64
+
+    user = User.query.get(session["user_id"])
+    secret = pyotp.random_base32()
+
+    # Store temporarily in session until confirmed
+    session["pending_totp_secret"] = secret
+
+    totp = pyotp.TOTP(secret)
+    uri = totp.provisioning_uri(name=user.username, issuer_name="DRT System")
+
+    # Generate QR code as base64 PNG
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    return jsonify({"secret": secret, "qr_code": f"data:image/png;base64,{qr_b64}"})
+
+
+@settings_bp.route("/api/settings/2fa/enable", methods=["POST"])
+@login_required
+def totp_enable():
+    """Verify TOTP code and enable 2FA."""
+    import pyotp
+
+    data = request.get_json()
+    code = data.get("code", "").strip() if data else ""
+    secret = session.get("pending_totp_secret")
+
+    if not secret:
+        return jsonify({"success": False, "error": "Please generate a QR code first."}), 400
+
+    totp = pyotp.TOTP(secret)
+    if not totp.verify(code, valid_window=1):
+        return jsonify({"success": False, "error": "Invalid code. Please try again."}), 400
+
+    user = User.query.get(session["user_id"])
+    user.totp_secret = secret
+    user.totp_enabled = True
+    db.session.commit()
+    session.pop("pending_totp_secret", None)
+
+    return jsonify({"success": True, "message": "2FA enabled successfully."})
+
+
+@settings_bp.route("/api/settings/2fa/disable", methods=["POST"])
+@login_required
+def totp_disable():
+    """Disable 2FA after password verification."""
+    data = request.get_json()
+    password = data.get("password", "") if data else ""
+
+    user = User.query.get(session["user_id"])
+    if not user.check_password(password):
+        return jsonify({"success": False, "error": "Invalid password."}), 401
+
+    user.totp_secret = ""
+    user.totp_enabled = False
+    db.session.commit()
+    session.pop("totp_verified_at", None)
+
+    return jsonify({"success": True, "message": "2FA disabled."})

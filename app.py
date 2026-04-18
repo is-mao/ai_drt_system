@@ -20,8 +20,16 @@ def create_app():
     app.config.from_object(Config)
     app.permanent_session_lifetime = Config.PERMANENT_SESSION_LIFETIME
 
-    CORS(app, origins=os.environ.get("CORS_ORIGINS", "*").split(","))
+    CORS(app, origins=os.environ.get("CORS_ORIGINS", "https://drt.ismao.eu.cc").split(","))
     db.init_app(app)
+
+    @app.after_request
+    def set_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
     # Register blueprints
     from routes.auth import auth_bp
@@ -91,6 +99,8 @@ def _migrate_columns(app):
             "bu": "VARCHAR(20) DEFAULT ''",
             "gemini_api_key": "VARCHAR(512) DEFAULT ''",
             "glm_api_key": "VARCHAR(512) DEFAULT ''",
+            "totp_secret": "VARCHAR(32) DEFAULT ''",
+            "totp_enabled": "BOOLEAN DEFAULT 0",
         },
     }
 
@@ -115,17 +125,21 @@ def _seed_defaults():
     from models.user import User
     from models.system_config import SystemConfig
 
-    # Seed superadmin if not exists
-    if not User.query.filter_by(username="ismao").first():
-        sa = User(username="ismao", role="superadmin", is_active=True)
-        sa.set_password("maomao123")
+    # Seed superadmin from environment variables
+    sa_user = os.environ.get("SEED_SUPERADMIN_USER", "ismao")
+    sa_pass = os.environ.get("SEED_SUPERADMIN_PASS", "")
+    if sa_pass and not User.query.filter_by(username=sa_user).first():
+        sa = User(username=sa_user, role="superadmin", is_active=True)
+        sa.set_password(sa_pass)
         db.session.add(sa)
         db.session.commit()
 
-    # Seed admin account
-    if not User.query.filter_by(username="admin").first():
-        admin = User(username="admin", role="superadmin", is_active=True)
-        admin.set_password("admin_mao")
+    # Seed admin from environment variables
+    admin_user = os.environ.get("SEED_ADMIN_USER", "admin")
+    admin_pass = os.environ.get("SEED_ADMIN_PASS", "")
+    if admin_pass and not User.query.filter_by(username=admin_user).first():
+        admin = User(username=admin_user, role="superadmin", is_active=True)
+        admin.set_password(admin_pass)
         db.session.add(admin)
         db.session.commit()
 

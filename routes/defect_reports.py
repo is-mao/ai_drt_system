@@ -3,7 +3,7 @@ from datetime import datetime
 from math import ceil
 from models import db
 from models.defect_report import DefectReport
-from routes.auth import login_required
+from routes.auth import login_required, totp_required
 from config import Config
 from services.db_routing import (
     get_user_db,
@@ -307,6 +307,7 @@ def api_defect_update(id):
 
 @defects_bp.route("/api/defects/<int:id>", methods=["DELETE"])
 @login_required
+@totp_required
 def api_defect_delete(id):
     udb = get_user_db()
     record = udb.get_or_404(DefectReport, id)
@@ -322,6 +323,7 @@ def api_defect_delete(id):
 
 @defects_bp.route("/api/defects/batch-delete", methods=["POST"])
 @login_required
+@totp_required
 def api_defect_batch_delete():
     """Batch delete defect records by IDs (superadmin only)."""
     if session.get("role") != "superadmin":

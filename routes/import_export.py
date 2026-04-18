@@ -2,7 +2,7 @@ from config import Config
 from models import db
 from models.defect_report import DefectReport
 from flask import Blueprint, request, jsonify, render_template, send_file, session
-from routes.auth import login_required
+from routes.auth import login_required, totp_required
 from services.db_routing import get_user_db, sync_to_remote
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -272,6 +272,7 @@ def import_excel():
 
 @import_export_bp.route("/api/export/excel", methods=["GET"])
 @login_required
+@totp_required
 def export_excel():
     bu = request.args.get("bu")
     date_from = request.args.get("date_from")

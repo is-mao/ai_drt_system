@@ -8,6 +8,48 @@
         <h4><i class="bi bi-people me-2" style="color: var(--primary);"></i>User Management</h4>
         <div class="page-subtitle">Manage user accounts and permissions</div>
     </div>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        <i class="bi bi-person-plus me-1"></i>Add User
+    </button>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Add User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-danger d-none" id="addUserError"></div>
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          <input type="text" class="form-control" id="addUsername" placeholder="3-64 characters" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-control" id="addPassword" placeholder="At least 8 characters" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Business Unit</label>
+          <select class="form-select" id="addBU">
+            <option value="">Select BU</option>
+            <option value="CRBU">CRBU</option>
+            <option value="WNBU">WNBU</option>
+            <option value="SRGBU">SRGBU</option>
+            <option value="UABU">UABU</option>
+            <option value="CSPBU">CSPBU</option>
+            <option value="IOTBU">IOTBU</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="addUserBtn">Create User</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Pending Approvals -->
@@ -159,7 +201,7 @@
     window.deleteUser = async function(id, username) {
         if (!await appConfirm(`Delete user "${username}"? This cannot be undone.`, 'Delete User')) return;
         try {
-            const resp = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+            const resp = await fetchWithTotp(`/api/admin/users/${id}`, { method: 'DELETE' });
             const json = await resp.json();
             if (json.success) {
                 showToast(json.message, 'success');
@@ -171,6 +213,44 @@
             showToast('Request failed', 'danger');
         }
     };
+
+    // Add User
+    document.getElementById('addUserBtn').addEventListener('click', async function() {
+        const username = document.getElementById('addUsername').value.trim();
+        const password = document.getElementById('addPassword').value;
+        const bu = document.getElementById('addBU').value;
+        const errEl = document.getElementById('addUserError');
+        errEl.classList.add('d-none');
+
+        if (!username || !password || !bu) {
+            errEl.textContent = 'All fields are required.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        try {
+            const resp = await fetchWithTotp('/api/admin/users/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username, password, bu})
+            });
+            const json = await resp.json();
+            if (json.success) {
+                bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+                document.getElementById('addUsername').value = '';
+                document.getElementById('addPassword').value = '';
+                document.getElementById('addBU').value = '';
+                showToast('User created', 'success');
+                loadUsers();
+            } else {
+                errEl.textContent = json.error || 'Failed to create user.';
+                errEl.classList.remove('d-none');
+            }
+        } catch (err) {
+            errEl.textContent = 'Request failed.';
+            errEl.classList.remove('d-none');
+        }
+    });
 })();
 </script>
 {% endblock %}

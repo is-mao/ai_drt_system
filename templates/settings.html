@@ -64,6 +64,55 @@
         </div>
     </div>
 
+    <!-- Two-Factor Authentication -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>
+                <i class="bi bi-shield-lock me-1"></i>
+                Two-Factor Authentication (2FA)
+            </h5>
+        </div>
+        <div class="card-body">
+            <div id="totp2faSection">
+                <div id="totpDisabledView">
+                    <p class="text-muted small mb-3">Protect sensitive operations (export, delete, user management) with a time-based one-time password (TOTP).</p>
+                    <button class="btn btn-primary btn-sm" id="totpSetupBtn"><i class="bi bi-qr-code me-1"></i>Enable 2FA</button>
+                </div>
+                <div id="totpSetupView" class="d-none">
+                    <p class="small mb-2">Scan this QR code with your authenticator app (WeChat "腾讯身份验证器", Google Authenticator, etc.):</p>
+                    <div class="text-center mb-3">
+                        <img id="totpQrImg" style="max-width:200px;" alt="QR Code">
+                    </div>
+                    <p class="small text-muted mb-2">Or enter this secret manually: <code id="totpSecretText"></code></p>
+                    <div class="row justify-content-center">
+                        <div class="col-md-4">
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control text-center" id="totpConfirmCode" maxlength="6" placeholder="Enter 6-digit code" inputmode="numeric">
+                                <button class="btn btn-success" id="totpConfirmBtn">Confirm</button>
+                            </div>
+                            <div class="text-danger small d-none" id="totpSetupError"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="totpEnabledView" class="d-none">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-success me-2"><i class="bi bi-check-lg me-1"></i>2FA Enabled</span>
+                        <span class="text-muted small">Sensitive operations require a verification code from your authenticator app.</span>
+                    </div>
+                    <hr>
+                    <div class="mb-2">
+                        <label class="form-label small">Enter your password to disable 2FA:</label>
+                        <div class="input-group" style="max-width:350px;">
+                            <input type="password" class="form-control form-control-sm" id="totpDisablePass" placeholder="Password">
+                            <button class="btn btn-outline-danger btn-sm" id="totpDisableBtn">Disable 2FA</button>
+                        </div>
+                        <div class="text-danger small d-none mt-1" id="totpDisableError"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- About -->
     <div class="card">
         <div class="card-header">
@@ -154,6 +203,72 @@ function loadUserAISettings() {
         else { info.style.display = 'none'; info.innerHTML = ''; }
     });
 }
+
+// ---- 2FA / TOTP Settings ----
+(async function() {
+    var disabledView = document.getElementById('totpDisabledView');
+    var setupView = document.getElementById('totpSetupView');
+    var enabledView = document.getElementById('totpEnabledView');
+
+    // Check current status
+    var resp = await fetch('/api/settings/2fa/status');
+    var status = await resp.json();
+    if (status.enabled) {
+        disabledView.classList.add('d-none');
+        enabledView.classList.remove('d-none');
+    }
+
+    // Setup button
+    document.getElementById('totpSetupBtn').addEventListener('click', async function() {
+        var r = await fetch('/api/settings/2fa/setup');
+        var data = await r.json();
+        document.getElementById('totpQrImg').src = data.qr_code;
+        document.getElementById('totpSecretText').textContent = data.secret;
+        disabledView.classList.add('d-none');
+        setupView.classList.remove('d-none');
+    });
+
+    // Confirm button
+    document.getElementById('totpConfirmBtn').addEventListener('click', async function() {
+        var code = document.getElementById('totpConfirmCode').value.trim();
+        var errEl = document.getElementById('totpSetupError');
+        errEl.classList.add('d-none');
+        if (code.length !== 6) { errEl.textContent = 'Enter a 6-digit code.'; errEl.classList.remove('d-none'); return; }
+        var r = await fetch('/api/settings/2fa/enable', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({code: code})
+        });
+        var data = await r.json();
+        if (data.success) {
+            setupView.classList.add('d-none');
+            enabledView.classList.remove('d-none');
+            showToast('2FA enabled successfully', 'success');
+        } else {
+            errEl.textContent = data.error; errEl.classList.remove('d-none');
+        }
+    });
+
+    // Disable button
+    document.getElementById('totpDisableBtn').addEventListener('click', async function() {
+        var pass = document.getElementById('totpDisablePass').value;
+        var errEl = document.getElementById('totpDisableError');
+        errEl.classList.add('d-none');
+        if (!pass) { errEl.textContent = 'Enter your password.'; errEl.classList.remove('d-none'); return; }
+        var r = await fetch('/api/settings/2fa/disable', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({password: pass})
+        });
+        var data = await r.json();
+        if (data.success) {
+            enabledView.classList.add('d-none');
+            disabledView.classList.remove('d-none');
+            document.getElementById('totpDisablePass').value = '';
+            showToast('2FA disabled', 'success');
+        } else {
+            errEl.textContent = data.error; errEl.classList.remove('d-none');
+        }
+    });
+})();
 
 </script>
 {% endblock %}

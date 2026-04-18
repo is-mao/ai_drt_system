@@ -806,7 +806,7 @@
                 else if (json.source === 'dict') sourceBadge = '<span class="badge bg-secondary me-1">Failure Dictionary</span>';
 
                 let aiWarning = '';
-                if (json.ai_error) aiWarning = '<div class="text-warning small mb-1">AI unavailable: ' + json.ai_error.substring(0, 120) + '</div>';
+                if (json.ai_error) aiWarning = '<div class="text-warning small mb-1">AI unavailable: ' + escapeHtml(json.ai_error.substring(0, 120)) + '</div>';
 
                 document.getElementById('aiRootCauseText').innerHTML = sourceBadge + aiWarning;
                 let rcNode = document.createTextNode(json.root_cause || 'N/A');
