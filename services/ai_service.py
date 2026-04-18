@@ -297,6 +297,26 @@ def analyze_log_with_ai(log_content, failure="", defect_class="", station="", bu
             traceback.print_exc()
             break
 
+    # Tier 1.5: Try GLM as fallback AI
+    glm_key = _get_glm_api_key()
+    if glm_key:
+        try:
+            result = _call_glm_analysis(glm_key, log_content, failure, defect_class, station, bu, keywords)
+            if result:
+                root_cause, action = _parse_ai_response(result)
+                return {
+                    "success": True,
+                    "source": "ai",
+                    "root_cause": root_cause,
+                    "action": action,
+                    "suggestion": result,
+                    "details": None,
+                }
+        except Exception as e:
+            print(f"GLM API error: {e}")
+            if not ai_error:
+                ai_error = str(e)
+
     # Tier 2: Search historical data
     if failure:
         similar = search_similar_failures(failure, station=station, bu=bu, exclude_id=exclude_id)
@@ -450,6 +470,39 @@ Action:
                 continue
             return {"success": False, "error": str(e)}
 
+    # Fallback to GLM for beautify
+    glm_key = _get_glm_api_key()
+    if glm_key:
+        try:
+            body = json.dumps(
+                {
+                    "model": "glm-4-flash",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.2,
+                }
+            ).encode("utf-8")
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {glm_key}"}
+            payload = _http_json_request(
+                "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+                method="POST",
+                headers=headers,
+                body=body,
+                timeout=60,
+            )
+            choices = payload.get("choices") or []
+            if choices:
+                message = (choices[0] or {}).get("message") or {}
+                result_text = (message.get("content") or "").strip()
+                if result_text:
+                    new_rc, new_action = _parse_ai_response(result_text)
+                    return {
+                        "success": True,
+                        "root_cause": new_rc or root_cause,
+                        "action": new_action or action,
+                    }
+        except Exception as e:
+            return {"success": False, "error": f"GLM fallback failed: {e}"}
+
     return {"success": False, "error": "All API keys exhausted (quota). Please try again later."}
 
 
@@ -513,6 +566,31 @@ Action:
 1. [step]
 2. [step]
 3. Retest and confirm PASS"""
+
+
+def _call_glm_analysis(api_key, log_content, failure, defect_class, station, bu, keywords=""):
+    """Call GLM API for defect analysis."""
+    prompt = _build_prompt(bu, station, failure, defect_class, log_content, keywords)
+    body = json.dumps(
+        {
+            "model": "glm-4-flash",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+        }
+    ).encode("utf-8")
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    payload = _http_json_request(
+        "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        method="POST",
+        headers=headers,
+        body=body,
+        timeout=60,
+    )
+    choices = payload.get("choices") or []
+    if not choices:
+        raise RuntimeError("GLM returned empty response.")
+    message = (choices[0] or {}).get("message") or {}
+    return (message.get("content") or "").strip()
 
 
 def _call_gemini(api_key, log_content, failure, defect_class, station, bu, keywords=""):
