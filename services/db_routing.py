@@ -99,30 +99,13 @@ def is_remote_configured():
 
 
 def get_user_db():
-    """Get the UserDB adapter for the current request's user.
-
-    Routing based on session['mode']:
-    - online: Remote database via global DATABASE_URL
-    - offline (default): SQLite
-    """
+    """Get the UserDB adapter — always uses local SQLite."""
     if "user_db" in g:
         return g.user_db
 
     from models import db
 
-    mode = flask_session.get("mode", "offline")
-
-    if mode == "online":
-        _, factory = _get_remote_engine()
-        if factory:
-            udb = UserDB(factory(), is_primary=False, sync_remote=False)
-        else:
-            logger.warning("Online mode but no DATABASE_URL configured, falling back to SQLite")
-            udb = UserDB(db.session, is_primary=True, sync_remote=False)
-    else:
-        # offline mode — use SQLite (which is the primary db.session)
-        udb = UserDB(db.session, is_primary=True, sync_remote=False)
-
+    udb = UserDB(db.session, is_primary=True, sync_remote=False)
     g.user_db = udb
     return udb
 
